@@ -1,0 +1,48 @@
+<tryton>
+    <data>
+        <record model="ir.ui.view" id="site_form">
+            <field name="model">www.site</field>
+            <field name="type">form</field>
+            <field name="name">site_form</field>
+        </record>
+        <record model="ir.ui.view" id="site_tree">
+            <field name="model">www.site</field>
+            <field name="type">tree</field>
+            <field name="name">site_tree</field>
+        </record>
+
+        <record model="ir.model.access" id="site_access">
+            <field name="model" search="[('model', '=', 'www.site')]"/>
+            <field name="perm_read" eval="False"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_delete" eval="False"/>
+        </record>
+        <record model="ir.model.access" id="site_access_admin">
+            <field name="model" search="[('model', '=', 'www.site')]"/>
+            <field name="group" ref="res.group_admin"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="True"/>
+            <field name="perm_create" eval="True"/>
+            <field name="perm_delete" eval="True"/>
+        </record>
+
+        <record model="ir.action.act_window" id="site_action">
+            <field name="name">Sites</field>
+            <field name="res_model">www.site</field>
+        </record>
+        <record model="ir.action.act_window.view" id="site_action_tree">
+            <field name="sequence" eval="10"/>
+            <field name="view" ref="site_tree"/>
+            <field name="act_window" ref="site_action"/>
+        </record>
+        <record model="ir.action.act_window.view" id="site_action_view">
+            <field name="sequence" eval="20"/>
+            <field name="view" ref="site_form"/>
+            <field name="act_window" ref="site_action"/>
+        </record>
+
+        <menuitem action="site_action" id="menu_site" parent="ir.menu_administration" sequence="200"/>
+
+    </data>
+</tryton>

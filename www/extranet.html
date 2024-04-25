@@ -1,0 +1,73 @@
+{% extends 'base-extranet.html' %}
+{% block title %}Extranet{% endblock %}
+{#
+{% block metatitle %}{{ website.metatitle or "Extranet" }}{% endblock %}
+{% block metadescription %}{{ website.metadescription or "Extranet" }}{% endblock %}
+{% block metakeywords %}{{ website.metakeyword or '' }}{% endblock %}
+#}
+{% block head %}
+<style>
+.bkg-home{padding:80px 10px 48px; position:relative;-moz-box-shadow:0 -1px 10px rgba(0, 0, 0, 0.04) inset;-webkit-box-shadow:0 -1px 10px rgba(0, 0, 0, 0.04) inset;box-shadow:0 -1px 10px rgba(0, 0, 0, 0.04) inset;
+background:url('/static/extranet/bkg-home-{{ [1,2]|random }}.jpg') no-repeat 35% 75%;-webkit-background-size:cover;-moz-background-size:cover;-o-background-size:cover;background-size:cover;}
+.panel-default {opacity: 0.9; margin-top: 30px}
+.form-group.last { margin-bottom:0px}
+</style>
+{% endblock %}
+{% block body %}
+<section id="content" class="extranet">
+    <div id="breadcrumb-home"></div>
+
+    <div class="container">
+        <div class="row bkg-home">
+            <div class="col-md-4 col-md-offset-6">
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <span class="glyphicon glyphicon-lock"></span> {% if current_user.is_authenticated %}{{ session.display_name }}{% else %}{{ _('Login') }}{% endif %}
+                    </div>
+                    <div id="login-extranet" class="panel-body">
+                        {% if current_user.is_authenticated %}
+                        <ul>
+                            <li><a href="{{ url_for('project.projects', lang=g.language) }}" rel="nofollow"><i class="icon-star"></i> {{ _("Tasks") }}</a></li>
+                            <li><a href="{{ url_for('hours-by-month', lang=g.language) }}" rel="nofollow"><i class="icon-user"></i> {{ _("Hours by Month") }}</a></li>
+                            <li><a href="{{ url_for('my-account', lang=g.language) }}" rel="nofollow"><i class="icon-user"></i> {{ _("My Account") }}</a></li>
+                        </ul>
+                        {% else %}
+            {#
+                        <form class="form-horizontal" method="post" action="{{ url_for('portal.login', lang=g.language) }}">
+            #}
+	    <form clss="form-horizontal" method="POST" action="/login">
+                        <div class="form-group">
+                            <label for="inputEmail3" class="col-sm-3 control-label">
+                                {{ _('Email') }}</label>
+                            <div class="col-sm-9">
+                                <input type="email" class="form-control" id="email" name="email" placeholder="Email" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="inputPassword3" class="col-sm-3 control-label">
+                                {{ _('Password') }}</label>
+                            <div class="col-sm-9">
+                                <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
+                            </div>
+                        </div>
+                        <div class="form-group last">
+                            <div class="col-sm-offset-3 col-sm-9">
+                                <button type="submit" class="btn btn-custom">{{ _('Sign in') }}</button>
+                            </div>
+                        </div>
+            {#
+                        <input type="hidden" id="csrf_token" name="csrf_token" value="{{ csrf_token() }}" />
+            #}
+                        </form>
+                        {% endif %}
+                    </div>
+                    <div class="panel-footer">
+                        www.nan-tic.com
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</section>
+{% endblock %}

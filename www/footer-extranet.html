@@ -1,0 +1,47 @@
+    <section id="footer-address">
+        <div class="container-fluid footer-grey">
+            <div class="container">
+                <div class="row">
+                    <div class="col-md-4 col-sm-4 col-xs-4" style="margin-bottom: 40px;" >
+                        <a class="navbar-brand" href="/{{ g.language }}/"><img src="{{ url_for('static', filename='logo-'+ g.language +'-bn.svg') }}" alt="NaN-tic"></a>
+                    </div>
+                    <div class="col-md-4 hidden-sm hidden-xs">
+                        <p style="color:#fff;">
+                        Carrer de les Paus, 98 Local 2 (cantonada Gran Via)<br>
+                        08202 Sabadell (Barcelona)<br>
+                        T <a href="tel:+34935531803">935 531 803</a>
+                        </p>
+                    </div>
+                    <div class="col-md-4 col-sm-8 col-xs-8">
+                        <ul class="footer-menu">
+                            {% for menu in cms_menu(code='extranet-footer-menu') recursive %}
+			        {% if (menu.loggin and current_user.is_authenticated) or not menu.loggin %}
+                                <li id="{{ menu.code }}" class="scroll">
+                                    <a href="{{ menu.uri }}" title="{{ menu.name }}" class="{{ menu.css }}{% if menu.target_uri.rec_name in request.path %} active{% endif %}{% if menu.extra_classes %} {{ menu.extra_classes }}{% endif %}">{{ menu.name }}</a>
+                                </li>
+				{% endif %}
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer id="footer">
+        <div class="container">
+            <div class="row">
+                <div class="col-sm-6">
+                   <p style="font-size:15px;"> &copy; Copyright NaN-tic {{ g.today|dateformat('yyyy') }}</p>
+                </div>
+                <div class="col-sm-6">
+                    <ul class="social-icons">
+                        <li><a href="https://www.linkedin.com/company/nan-tic" aria-label="LinkedIn"><i class="fa fa-linkedin" aria-hidden="true"></i></a></li>
+                        <li><a href="https://twitter.com/nan_tic" aria-label="Twitter"><i class="fa fa-twitter" aria-hidden="true"></i></a></li>
+                        <li><a href="https://www.youtube.com/channel/UCkm5Ev50OaN33Awt7A2CJiA" aria-label="YouTube"><i class="fa fa-youtube" aria-hidden="true"></i></a></li>
+                        <li><a href="https://www.slideshare.net/NaN-tic" aria-label="SlideShare"><i class="fa fa-slideshare" aria-hidden="true"></i></a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </footer>
