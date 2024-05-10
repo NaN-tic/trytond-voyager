@@ -1,5 +1,7 @@
 <form>
     <label name="name"/>
     <field name="name"/>
+    <label name="session_lifetime"/>
+    <field name="session_lifetime"/>
 </form>
 

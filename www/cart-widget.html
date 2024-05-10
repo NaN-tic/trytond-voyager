@@ -1,0 +1,30 @@
+<!-- TODO: realod card on add product -->
+<div>
+    <table>
+        <thead>
+            <tr>
+                <td> SALE LINE ID </td>
+                <td> PRODUCT ID </td>
+                <td> PRODUCT NAME </td>
+                <td> PRODUCT QUANTITY </td>
+                <td> PRODUCT PRICE </td>
+            </tr>
+        </thead>
+        <tbody>
+            {% if lines %}
+                {% for line in lines %}
+                    <td> {{line.id}} </td>
+                    <td> {{line.product.id}}</td>
+                    <td> {{line.product.name}}</td>
+                    <td> {{line.quantity}}</td>
+                    <td> {{line.unit_price}}</td>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="5" style="text-align:center"> No products in cart </td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+    <button hx-post="/cart/widget">TEST BUTTON</button>
+</div>

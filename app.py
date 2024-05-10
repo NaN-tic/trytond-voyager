@@ -1,6 +1,7 @@
 import os
 import click
 import socket
+from trytond.config import config as CONFIG
 from datetime import datetime
 from flask import Flask, request, g
 from flask_tryton import Tryton
@@ -53,40 +54,25 @@ def get_configs(site, filename):
             configs.append(conf_file)
     return configs
 
-@login_manager.user_loader
-def user_loader(user_id):
-    LOGIN_EXTRA_FIELDS = app.config.get('LOGIN_EXTRA_FIELDS', [])
-
-    user = User()
-    user.id = user_id
-    user.party = session['party'] if session.get('party') else None
-    user.display_name = (session['display_name']
-        if session.get('display_name') else None)
-    user.email = session['email'] if session.get('email') else None
-    for field in LOGIN_EXTRA_FIELDS:
-        setattr(user, field, session.get(field, None))
-    user.manager = session['manager'] if session.get('manager') else None
-    return user
-
 @main.command()
 @click.argument('database')
 @click.argument('site')
-@click.option('--user', default=1)
+@click.option('--user', default=15)
 @click.option('--host', default='0.0.0.0', help='IP to listen on')
 @click.option('--port', default=5000, help='Port to listen on')
-def run(database, site, user, host, port):
+@click.option('--config-file', default='trytond.conf')
+def run(database, site, user, host, port, config_file):
     import common
+    CONFIG.update_etc(config_file)
     # TODO: Allow configuration filename
-    app = common.create_app(site, get_configs(site, filename=None))
+    app = common.create_app(get_configs(site, filename=None))
     #app = Flask(site)
-    app.config['TRYTON_DATABASE'] = 'nantic-local'
+    app.config['TRYTON_DATABASE'] = 'vegio-beta68_250424'
     app.config['TRYTON_USER'] = user
     # TODO: Pick environment variables with WWW_ prefix
     app.config['SECRET_KEY'] = 'secret'
     tryton = Tryton(app)
     babel = Babel(app)
-    login_manager = LoginManager()
-    login_manager.init_app(app)
 
     Site = tryton.pool.get('www.site')
 
@@ -109,11 +95,13 @@ def run(database, site, user, host, port):
     @app.route('/', methods=['GET', 'POST'])
     @tryton.transaction(readonly=False)
     def handle_root():
+        print('HANDLE 2')
         return Site.handle(site, '/', request)
 
     @app.route('/<path:path>', methods=['GET', 'POST'])
     @tryton.transaction(readonly=False)
     def handle(path):
+        print('HANDLE 1')
         return Site.handle(site, f'/{path}', request)
 
     # TODO: Configure logging (see common.py)

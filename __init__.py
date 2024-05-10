@@ -11,4 +11,8 @@ def register():
         #www.Index,
         www.ExtranetIndex,
         www.ExtranetLogin,
+        www.CartComponent,
+        www.CatalogComponent,
+        www.CatalogProduct,
+        www.Product,
         module='www', type_='model')
