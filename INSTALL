@@ -1,5 +1,5 @@
-Installing nantic_www
-=====================
+Installing nantic_voyager
+=========================
 
 Prerequisites
 -------------
@@ -10,7 +10,7 @@ Prerequisites
 Installation
 ------------
 
-Once you've downloaded and unpacked the nantic_www source
+Once you've downloaded and unpacked the nantic_voyager source
 release, enter the directory where the archive was unpacked, and run:
 
     python setup.py install
@@ -26,4 +26,4 @@ documentation:
   http://docs.python.org/inst/inst.html
 
 To use without installation, extract the archive into ``trytond/modules`` with
-the directory name www.
+the directory name voyager.

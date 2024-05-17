@@ -1,4 +1,4 @@
-# This file is part www module for Tryton.
+# This file is part voyager module for Tryton.
 # The COPYRIGHT file at the top level of this repository contains
 # the full copyright notices and license terms.
 from trytond.pool import Pool
@@ -9,4 +9,4 @@ def register():
         voyager.Site,
         voyager.Session,
         voyager.Component,
-        module='www', type_='model')
+        module='voyager', type_='model')

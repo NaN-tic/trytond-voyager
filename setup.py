@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# This file is part www module for Tryton.
+# This file is part voyager module for Tryton.
 # The COPYRIGHT file at the top level of this repository contains
 # the full copyright notices and license terms.
 # encoding: utf-8
@@ -10,7 +10,7 @@ import os
 import io
 from configparser import ConfigParser
 
-MODULE = 'www'
+MODULE = 'voyager'
 PREFIX = 'nantic'
 MODULE2PREFIX = {}
 OWNER = {
@@ -96,8 +96,8 @@ setup(name='%s_%s' % (PREFIX, MODULE),
     long_description=read('README'),
     author='NaN-tic',
     author_email='info@nan-tic.com',
-    url='https://github.com/NaN-tic/trytond-www',
-    download_url='https://github.com:nantic/trytond-www.git',
+    url='https://github.com/NaN-tic/trytond-voyager',
+    download_url='https://github.com:nantic/trytond-voyager.git',
     package_dir={'trytond.modules.%s' % MODULE: '.'},
     packages=[
         'trytond.modules.%s' % MODULE,
@@ -109,7 +109,7 @@ setup(name='%s_%s' % (PREFIX, MODULE),
             'icons/*.svg']),
         },
     project_urls = {
-       "Source Code": 'https://github.com:NaN-tic/trytond-www.git'
+       "Source Code": 'https://github.com:NaN-tic/trytond-voyager.git'
     },
     classifiers=[
         'Development Status :: 5 - Production/Stable',

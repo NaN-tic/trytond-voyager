@@ -538,7 +538,7 @@ class Component(ModelView):
 
     @classmethod
     def get_template_paths(cls):
-        return [os.path.abspath(os.path.join(os.path.dirname(__file__), 'www'))]
+        return [os.path.abspath(os.path.join(os.path.dirname(__file__), 'voyager'))]
 
     @classmethod
     def get_environment(cls):
