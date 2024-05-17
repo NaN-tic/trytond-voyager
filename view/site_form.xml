@@ -8,8 +8,8 @@
     <separator string="Session" colspan="4" id="session"/>
     <label name="session_lifetime"/>
     <field name="session_lifetime"/>
-    <label name="session_lifetime_update_frecuency"/>
-    <field name="session_lifetime_update_frecuency"/>
+    <label name="session_lifetime_update_frequency"/>
+    <field name="session_lifetime_update_frequency"/>
     <separator string="Metadescription" colspan="4" id="metadescription"/>
     <label name="metadescription"/>
     <field name="metadescription"/>

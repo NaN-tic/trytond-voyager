@@ -46,12 +46,12 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
     url = fields.Char('URL', required=True)
     session_lifetime = fields.Integer('Session Lifetime',
         help="The session lifetme in secons")
-    session_lifetime_update_frecuency = fields.Integer(
+    session_lifetime_update_frequency = fields.Integer(
         'Session Lifetime Update Frecuency',
-        help="The frecuency to update the session lifetime in secons")
+        help="The frequency to update the session lifetime in seconds")
     # Head arguments
     metadescription = fields.Char('Metadescription')
-    keywords = fields.Char('Keywords', help="List of keywords separate by comma")
+    keywords = fields.Char('Keywords', help="Comma-separated list of keywords")
     metatitle = fields.Char('Metatitle')
     canonical = fields.Char('Canonical')
     author = fields.Char('Author')
@@ -63,7 +63,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         return 3600
 
     @staticmethod
-    def default_session_lifetime_update_frecuency():
+    def default_session_lifetime_update_frequency():
         return 1800
 
     def path_from_view(self, view):
@@ -271,7 +271,7 @@ class Session(ModelSQL, ModelView):
 
     def update_expiration_date(self):
         if (self.expiration_date + timedelta(
-                seconds=self.site.session_lifetime_update_frecuency) <
+                seconds=self.site.session_lifetime_update_frequency) <
                 datetime.now()):
             self.expiration_date = (datetime.now() +
                 timedelta(seconds=self.site.session_lifetime))
