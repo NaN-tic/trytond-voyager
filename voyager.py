@@ -1,6 +1,5 @@
 import os
 import jinja2
-import flask
 import secrets
 from functools import partial
 from trytond.model import DeactivableMixin, ModelSQL, ModelView, fields
@@ -8,8 +7,6 @@ from trytond.pool import Pool
 from trytond.transaction import Transaction
 
 from datetime import datetime, timedelta
-from flask_babel import format_date
-
 from werkzeug.routing import Map
 from werkzeug.wrappers import Response
 from dominate.tags import (div, p)
@@ -25,133 +22,6 @@ def dateformat(value, format='medium'):
     if not value:
         return ''
     return format_date(value, format)
-
-# TODO: Move to module galatea_cms
-def cms_menu(site, code=None, id=None, levels=9999):
-    """
-    Return object values menu by code
-
-    HTML usage in template:
-
-    {% set menus=cms_menu(code='code') %}
-    {% if menus %}
-        {% for menu in menus %}
-            <a href="{{ menu.uri }}" alt="{{ menu.name }}">{{ menu.name }}</a>
-        {% endfor %}
-    {% endif %}
-    """
-    pool = Pool()
-    Menu = pool.get('galatea.cms.menu')
-
-    # Search by code
-    if code:
-        menus = Menu.search([
-                ('code', '=', code),
-                ('website', '=', 3),
-                #('website', '=', site.id),
-                ], limit=1)
-        if not menus:
-            return []
-        menu, = menus
-    elif id:
-        menu = Menu(id)
-    else:
-        return []
-
-    #login = session.get('logged_in')
-    #manager = session.get('manager')
-    path = Transaction().context.get('path')
-
-    def get_menus(menu, levels, level=0):
-        childs = []
-        activated = False
-        if level < levels:
-            level += 1
-            for m in menu.childs:
-                #if m.login and not login:
-                #    continue
-                #if m.manager and not manager:
-                #    continue
-                child_vals = get_menus(m, levels, level)
-                activated |= child_vals['activated']
-                childs.append(child_vals)
-
-        extra_classes = []
-        if menu.childs and menu.parent and not menu.parent.parent:
-            extra_classes.append('menu-item-has-children')
-        if menu.hidden_xs:
-            extra_classes.append('hidden-xs')
-        if menu.hidden_sm:
-            extra_classes.append('hidden-sm')
-        if menu.hidden_md:
-            extra_classes.append('hidden-md')
-        if menu.hidden_lg:
-            extra_classes.append('hidden-lg')
-
-        uri = menu.url
-        activated |= (path == uri)
-        return {
-            'id': menu.id,
-            'name': menu.name_used,
-            'code': menu.code,
-            'uri': uri,
-            'target_uri': menu.target_uri,
-            'childs': childs,
-            'activated': activated,
-            'active': (path == uri),
-            'nofollow': menu.nofollow,
-            'icon': menu.icon,
-            'css': menu.css,
-            'extra_classes': ' '.join(extra_classes),
-            }
-    menu = get_menus(menu, levels)
-    return menu['childs']
-
-def multilang_permalink(uri_id=None):
-    pool = Pool()
-    Lang = pool.get('ir.lang')
-
-    contact_uris = ['/en/contact', '/es/contacto', '/ca/contacte']
-
-    # TODO: get website languages
-    langs = Lang.search([
-            ('active', '=', True),
-            ('translatable', '=', True),
-            ])
-    res = []
-    for lang in langs:
-        lang_code = lang.code
-        lang_name = lang.name
-
-        # galatea CMS
-        if uri_id:
-            with Transaction().set_context(language=lang.code):
-                uri = Uri(uri_id)
-                res.append({
-                        'name': uri.name,
-                        'uri': uri.uri,
-                        'lang_code': lang_code,
-                        'lang_name': lang_name,
-                        })
-        # contact blueprint
-        elif flask.request.path in contact_uris:
-            for uri in contact_uris:
-                if uri.startswith('/%s/' % lang_code):
-                    break
-            res.append({
-                    'name': lang_name,
-                    'uri': uri,
-                    'lang_code': lang_code,
-                    'lang_name': lang_name,
-                    })
-        else:
-            res.append({
-                    'name': lang_name,
-                    'uri': '/%s/' % lang_code,
-                    'lang_code': lang_code,
-                    'lang_name': lang_name,
-                    })
-    return res
 
 def component(name):
     """
@@ -172,21 +42,12 @@ def render_component(name, lazy=False, **kwargs):
     render the component
     """
     pool = Pool()
-
     Component = pool.get(name)
     component = Component(render=False)
-
-    '''
-    try:
-        Component = pool.get(name)
-        component = Component()
-    except Exception as e:
-        raise ValueError('No component found for name %s' % name)
-    '''
-
     if lazy:
         return component.render_lazy()
     return component.tag()
+
 
 class Site(DeactivableMixin, ModelSQL, ModelView):
     'WWW Site'
@@ -194,7 +55,8 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
     __slots__ = ['map']
 
     name = fields.Char('Name', required=True)
-    url = '0.0.0.0:5000'
+    type = fields.Selection([], 'Type', required=True)
+    url = fields.Char('URL', required=True)
     session_lifetime = fields.Integer('Session Lifetime',
         help="The session lifetme in secons")
     session_lifetime_update_frecuency = fields.Integer(
@@ -208,10 +70,6 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
     author = fields.Char('Author')
     title = fields.Char('Title')
     css_min = fields.Boolean('CSS Min')
-
-    # url
-    # author
-    # description
 
     @staticmethod
     def default_session_lifetime():
@@ -231,19 +89,26 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         return View._path
 
     @classmethod
-    def handle(cls, name, path, request):
+    def dispatch(cls, site_type, site_id, request):
         pool = Pool()
         Session = pool.get('www.session')
 
-        sites = cls.search([('name', '=', name)], limit=1)
-        if not sites:
-            raise ValueError('Site "%s" not found' % name)
-        site, = sites
-
+        if site_id:
+            site = cls(site_id)
+        else:
+            sites = cls.search([('type', '=', site_type)], limit=1)
+            if sites:
+                site, = sites
+            else:
+                site = cls()
+                site.name = site_type
+                site.type = site_type
+                site.url = request.url_root
+                site.save()
         web_map, adapter, endpoint_args = site.get_site_info()
 
         # Get the component and function to execute
-        endpoint, args = adapter.match(path)
+        endpoint, args = adapter.match(request.path)
         component_model = endpoint.split('/')[0]
         component_function = None
 
@@ -274,7 +139,8 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         with Transaction().set_context(site=site):
             session = Session().get(request)
 
-        with Transaction().set_context(site=site, path=path, session=session):
+        with Transaction().set_context(site=site, path=request.path,
+                session=session):
             # Get the component object and function
             try:
                 Component = pool.get(component_model)
@@ -302,49 +168,33 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
             if function_variables:
                 instance_variables['render'] = False
                 component = Component(**instance_variables)
-                res = getattr(component, component_function)(function_variables)
+                response = getattr(component, component_function)(function_variables)
             else:
                 component = Component(**instance_variables)
-                res = getattr(component, component_function)()
+                response = getattr(component, component_function)()
 
             # Render the content and prepare the response. The DOMinate render
             # can handle the raw() objects and any tag (html_tag) we send any
             # other format will raise a traceback
             #print(f'\nRES: {res} \nTYPE: {type(res)}\n')
 
-            if res and isinstance(res, Response):
-                response = res
-            elif res:
-                #TODO: temporal solution until DOMinate render htmx tags:
+            if not isinstance(response, Response):
+                if not response:
+                    response = ''
+                #TODO: Temporary solution until DOMinate render htmx tags:
                 # https://github.com/Knio/dominate/issues/193
-                #print(f'---- RES: {res.render()} | {type(res.render())} ----')
-                res = res.render().replace('hx_', 'hx-')
-                response = flask.make_response(res)
-            else:
-                response = flask.make_response()
+                response = response.render().replace('hx_', 'hx-')
+                response = Response(response, content_type='text/html')
 
             # Add all the htmx triggers to the header of the response
-            if len(Trigger.get_triggers()) > 0:
+            if Trigger.get_triggers():
                 response.headers['HX-Trigger'] = ', '.join(
                     list(Trigger.get_triggers()))
             response.set_cookie('session_id', session.session_id)
             return response
 
     def template_context(self):
-        from flask_login import current_user
-        from flask_babel import gettext as _
-
         context = Transaction().context.copy()
-        context['g'] = flask.g
-        context['url_for'] = flask.url_for
-        context['get_flashed_messages'] = flask.get_flashed_messages
-        context['current_user'] = current_user
-        context['_'] = _
-        context['config'] = flask.current_app.config
-
-        # This should be added by inheriting
-        context['cms_menu'] = partial(cms_menu, site=self)
-        context['multilang_permalink'] = multilang_permalink
         return context
 
     def get_site_info(self):
@@ -404,7 +254,7 @@ class Session(ModelSQL, ModelView):
     __name__ = 'www.session'
     site = fields.Many2One('www.site', 'Site', required=True)
     session_id = fields.Char('Session ID', required=True)
-    user = fields.Many2One('galatea.user', 'User')
+    user = fields.Many2One('web.user', 'User')
     expiration_date = fields.DateTime('Expiration Date', required=True)
     #TODO: create cron to clean sessions
 
@@ -466,7 +316,6 @@ class Component(ModelView):
     'Component'
     __slots__ = ['_tag']
     _path = None
-    #_tag = None
 
     @classmethod
     @property
@@ -497,7 +346,6 @@ class Component(ModelView):
         self._tag = None
         if render:
             self.create_tag()
-            self.tag()
 
     @property
     def path(self):
@@ -576,6 +424,8 @@ class Component(ModelView):
         self._tag = self.render()
 
     def tag(self):
+        if not self._tag:
+            self.create_tag()
         return self._tag
 
     @classmethod
