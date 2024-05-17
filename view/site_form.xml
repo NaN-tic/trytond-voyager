@@ -1,7 +1,25 @@
 <form>
     <label name="name"/>
     <field name="name"/>
+    <separator string="Session" colspan="4" id="session"/>
     <label name="session_lifetime"/>
     <field name="session_lifetime"/>
+    <label name="session_lifetime_update_frecuency"/>
+    <field name="session_lifetime_update_frecuency"/>
+    <separator string="Metadescription" colspan="4" id="metadescription"/>
+    <label name="metadescription"/>
+    <field name="metadescription"/>
+    <label name="keywords"/>
+    <field name="keywords"/>
+    <label name="metatitle"/>
+    <field name="metatitle"/>
+    <label name="canonical"/>
+    <field name="canonical"/>
+    <label name="author"/>
+    <field name="author"/>
+    <label name="title"/>
+    <field name="title"/>
+    <label name="css_min"/>
+    <field name="css_min"/>
 </form>
 

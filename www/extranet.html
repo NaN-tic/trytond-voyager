@@ -18,15 +18,9 @@ background:url('/static/extranet/bkg-home-{{ [1,2]|random }}.jpg') no-repeat 35%
     <div id="breadcrumb-home"></div>
 
     <div class="container">
+        {{ render_component('www.portal.login.widget')}}
         {{ render_component('www.cart.widget', lazy=True)}}
         {{ render_component('www.catalog.component')}}
-        <!-- ADD PRODUCT TO CART AND UPDATE CART -->
     </div>
-    <script type="text/javascript">
-        document.body.addEventListener("showMessage", function(evt){
-            console.log('==ALERT==');
-            alert('==ALERT==');
-        })
-    </script>
 </section>
 {% endblock %}

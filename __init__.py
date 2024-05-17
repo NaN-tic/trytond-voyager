@@ -2,17 +2,11 @@
 # The COPYRIGHT file at the top level of this repository contains
 # the full copyright notices and license terms.
 from trytond.pool import Pool
-from . import www
+from . import voyager
 
 def register():
     Pool.register(
-        www.Site,
-        www.Session,
-        #www.Index,
-        www.ExtranetIndex,
-        www.ExtranetLogin,
-        www.CartComponent,
-        www.CatalogComponent,
-        www.CatalogProduct,
-        www.Product,
+        voyager.Site,
+        voyager.Session,
+        voyager.Component,
         module='www', type_='model')

@@ -6,8 +6,6 @@ from datetime import datetime
 from flask import Flask, request, g
 from flask_tryton import Tryton
 from flask_babel import Babel
-from flask_login import (LoginManager, login_required, user_logged_in,
-    user_logged_out)
 
 @click.group()
 def main():

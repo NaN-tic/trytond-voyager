@@ -2,35 +2,17 @@ import os
 import jinja2
 import flask
 import secrets
-from datetime import datetime, timedelta
-from flask_babel import format_datetime, format_date
 from functools import partial
 from trytond.model import DeactivableMixin, ModelSQL, ModelView, fields
 from trytond.pool import Pool
 from trytond.transaction import Transaction
 
-from werkzeug.routing import Map, Rule
+from datetime import datetime, timedelta
+from flask_babel import format_date
+
+from werkzeug.routing import Map
 from werkzeug.wrappers import Response
-from dominate.tags import (div, h1, h2, p, a, form, button, span, table, thead,
-    tbody, tr, td)
-from dominate.tags import html_tag as html_tag
-from dominate.util import raw
-
-###
-class tag(html_tag):
-    pass
-
-'''
-# Agrupar elements sense utilitzar un wrapper
-class fragment(html_tag):
-    tagname = 'fragment'
-
-    def _render(self):
-        x = super()._render()
-        elimini el tag pare
-
-'''
-###
+from dominate.tags import (div, p)
 
 def dateformat(value, format='medium'):
     '''Return date time to format
@@ -192,7 +174,7 @@ def render_component(name, lazy=False, **kwargs):
     pool = Pool()
 
     Component = pool.get(name)
-    component = Component()
+    component = Component(render=False)
 
     '''
     try:
@@ -206,7 +188,6 @@ def render_component(name, lazy=False, **kwargs):
         return component.render_lazy()
     return component.tag()
 
-
 class Site(DeactivableMixin, ModelSQL, ModelView):
     'WWW Site'
     __name__ = 'www.site'
@@ -216,16 +197,29 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
     url = '0.0.0.0:5000'
     session_lifetime = fields.Integer('Session Lifetime',
         help="The session lifetme in secons")
+    session_lifetime_update_frecuency = fields.Integer(
+        'Session Lifetime Update Frecuency',
+        help="The frecuency to update the session lifetime in secons")
+    # Head arguments
+    metadescription = fields.Char('Metadescription')
+    keywords = fields.Char('Keywords', help="List of keywords separate by comma")
+    metatitle = fields.Char('Metatitle')
+    canonical = fields.Char('Canonical')
+    author = fields.Char('Author')
+    title = fields.Char('Title')
+    css_min = fields.Boolean('CSS Min')
 
     # url
     # author
     # description
-    # metadescription
-    # keywords
 
     @staticmethod
     def default_session_lifetime():
         return 3600
+
+    @staticmethod
+    def default_session_lifetime_update_frecuency():
+        return 1800
 
     def path_from_view(self, view):
         pool = Pool()
@@ -246,7 +240,6 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
             raise ValueError('Site "%s" not found' % name)
         site, = sites
 
-        ###
         web_map, adapter, endpoint_args = site.get_site_info()
 
         # Get the component and function to execute
@@ -269,15 +262,19 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
             raise ValueError('No component found %s' % component_model)
 
 
-        print(f'REQUEST: {request} | DIR: {dir(request)}')
         print(f'==== ENDPOINT: {endpoint} | ARGS: {args} ====')
+
+        if request.method == 'POST':
+            # In case we have a post method, use the request form as args. This
+            # means that we have a componet for each form and the form and
+            # the componet will need to have the same number of fields.
+            args = request.form
 
         # Check the session
         with Transaction().set_context(site=site):
             session = Session().get(request)
-            #TODO: add the user to the transaction we use to call the renders
 
-        with Transaction().set_context(site=site, path=path):
+        with Transaction().set_context(site=site, path=path, session=session):
             # Get the component object and function
             try:
                 Component = pool.get(component_model)
@@ -299,6 +296,9 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                     instance_variables[arg] = args[arg]
             print(f'Function variables: {function_variables} \n Instance variables: {instance_variables}')
 
+            #TODO: make more efficent the way we get the compoent, right
+            # now, even if we dont use the compoent we "execute" the render
+            # function
             if function_variables:
                 instance_variables['render'] = False
                 component = Component(**instance_variables)
@@ -306,35 +306,27 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
             else:
                 component = Component(**instance_variables)
                 res = getattr(component, component_function)()
-            """ try:
-                #TODO: make more efficent the way we get the compoent, right
-                # now, even if we dont use the compoent we "execute" the render
-                # function
-                if function_variables:
-                    instance_variables['render'] = False
-                    component = Component(**instance_variables)
-                    res = getattr(component, component_function)(function_variables)
-                else:
-                    component = Component(**instance_variables)
-                    res = getattr(component, component_function)()
-            except Exception as e:
-                raise ValueError(
-                    'Error executing function %s: %s' % (component_function, e)) """
 
             # Render the content and prepare the response. The DOMinate render
             # can handle the raw() objects and any tag (html_tag) we send any
             # other format will raise a traceback
-            print(f'\nRES: {res} \n')
-            if res:
-                res = res.render(pretty=False)
-                # Create werkzeug response
+            #print(f'\nRES: {res} \nTYPE: {type(res)}\n')
+
+            if res and isinstance(res, Response):
+                response = res
+            elif res:
+                #TODO: temporal solution until DOMinate render htmx tags:
+                # https://github.com/Knio/dominate/issues/193
+                #print(f'---- RES: {res.render()} | {type(res.render())} ----')
+                res = res.render().replace('hx_', 'hx-')
                 response = flask.make_response(res)
             else:
                 response = flask.make_response()
 
             # Add all the htmx triggers to the header of the response
-            print(f'TRIGGERS: {Trigger.get_triggers()}')
-            response.headers['HX-Trigger'] = Trigger.get_triggers()
+            if len(Trigger.get_triggers()) > 0:
+                response.headers['HX-Trigger'] = ', '.join(
+                    list(Trigger.get_triggers()))
             response.set_cookie('session_id', session.session_id)
             return response
 
@@ -442,8 +434,15 @@ class Session(ModelSQL, ModelView):
         return session
 
     def update_expiration_date(self):
-        self.expiration_date = (datetime.now() +
-            timedelta(seconds=self.site.session_lifetime))
+        if (self.expiration_date + timedelta(
+                seconds=self.site.session_lifetime_update_frecuency) <
+                datetime.now()):
+            self.expiration_date = (datetime.now() +
+                timedelta(seconds=self.site.session_lifetime))
+            self.save()
+
+    def set_user(self, user):
+        self.user = user
         self.save()
 
     @classmethod
@@ -459,18 +458,28 @@ class Session(ModelSQL, ModelView):
         session.session_id = session_id
         session.expiration_date = datetime.now() + timedelta(
             seconds=site.session_lifetime)
-        #TODO: prepare the session to set the galatea user if user is logged
         session.save()
         return session
 
 
 class Component(ModelView):
+    'Component'
+    __slots__ = ['_tag']
     _path = None
+    #_tag = None
 
     @classmethod
     @property
     def context(cls):
         return Transaction().context
+
+    @property
+    def site(cls):
+        return Transaction().context.get('site')
+
+    @property
+    def session(cls):
+        return Transaction().context.get('session')
 
     def __init__(self, *args, **kwargs):
         render = True
@@ -483,17 +492,16 @@ class Component(ModelView):
             # method to get only the triggers from the clas
             if x == 'updated':
                 if isinstance(getattr(self, x), Trigger):
-                    getattr(self, x).name = f"{self.__name__}/{x}"
+                    getattr(self, x).name = f"{self.__name__.replace('.','-')}_{x}"
+
+        self._tag = None
         if render:
+            self.create_tag()
             self.tag()
 
     @property
     def path(self):
         return self._path
-
-    @classmethod
-    def add_trigger(cls, trigger):
-        cls.context['site'].add_trigger(trigger)
 
     @classmethod
     def load_template(cls, name):
@@ -558,16 +566,17 @@ class Component(ModelView):
         '''
         The loading div that we show when the component is loading.
         '''
-        loading_div = div()
         #TODO: calculate the path using "build_url" method
-        loading_div['hx-get'] = self.path
-        loading_div['hx-trigger'] = 'load'
+        loading_div = div(hx_get=self.path, hx_trigger='load')
         with loading_div:
             self.lazy_content()
         return loading_div
 
+    def create_tag(self):
+        self._tag = self.render()
+
     def tag(self):
-        return self.render()
+        return self._tag
 
     @classmethod
     def get_url_map(cls):
@@ -611,368 +620,3 @@ class Trigger():
     @staticmethod
     def get_triggers():
         return Transaction().context.get('triggers', set([]))
-
-
-class Index(Component):
-    'Index'
-    __name__ = 'www.index'
-    _path = '/'
-
-    def render(self):
-        return raw('<html><body>Site: %s</body></html>' % Index.context['site'].name)
-
-###############
-# extranet.py #
-###############
-class ExtranetIndex(Component):
-    'Extranet Index'
-    __name__ = 'www.extranet.index'
-    _path = '/'
-
-    @classmethod
-    def get_url_map(cls):
-        return [
-            Rule('/')
-        ]
-
-    def render(self):
-        return raw(self.render_template('extranet.html'))
-
-
-class ExtranetLogin(Component):
-    'Extranet Login'
-    __name__ = 'www.extranet.login'
-    _path = '/login'
-
-    email = fields.Char('E-mail')
-    password = fields.Char('Password')
-
-    def successful(self, user):
-        import flask_login
-        flask_login.login_user(user)
-        return self.render_template('extranet.html')
-
-    def failed(self):
-        flask.flash('Invalid credentials')
-        return self.render_template('extranet.html')
-
-    def render_single(self):
-        pool = Pool()
-        User = pool.get('galatea.user')
-
-        if not self.email or not self.password:
-            return self.failed()
-
-        users = User.search([
-                ('active', '=', True),
-                ('email', '=', self.email),
-                # TODO: Remove hardcoded website
-                ('websites', 'in', [3]),
-                ], limit=1)
-        if not users:
-            return self.failed()
-        user, = users
-
-        import hashlib
-        # TODO: This code should be moved to galatea module
-        password = self.password.encode('utf-8')
-        salt = user.salt.encode('utf-8') if user.salt else ''
-        if salt:
-            password += salt
-        digest = hashlib.sha1(password).hexdigest()
-        if digest != user.password:
-            return self.failed()
-
-        return self.successful(user)
-
-    @classmethod
-    def render(cls):
-        return raw(cls.render_template('login.html'))
-
-
-class ExtranetHeader(Component):
-    'Extranet Header'
-    __name__ = 'www.extranet.header'
-    _path = '/header'
-
-    def render(self):
-        super().render()
-        return raw('<html><body>Site: %s</body></html>' % ExtranetHeader.context['site'].name)
-
-
-###########
-# cart.py #
-###########
-class CartComponent(Component):
-    'Cart Component'
-    __name__ = 'www.cart.widget'
-    _path = '/cart/widget'
-
-    updated = Trigger()
-
-    #TODO: to delete
-    """ def __init__(self):
-        super().__init__()
-        for x in dir(self):
-            if isinstance(x, Trigger):
-                x.name == f"{self.__name__}/{x.__name__}"
-
-        CartComponent.updated """
-
-    @classmethod
-    def get_url_map(cls):
-        return [
-            Rule('/cart/widget')
-        ]
-
-    def render(self):
-        pool = Pool()
-        SaleLine = pool.get('sale.line')
-        CCart = pool.get('www.cart.widget')
-
-        domain = [
-            ('sale', '=', None),
-            #('shop', '=', SHOP),
-            ('type', '=', 'line'),
-            ]
-
-        #TODO: Session
-
-        lines = SaleLine.search(domain, limit=10)
-
-        cart_div = div()
-        cart_div['hx-trigger'] = CCart.updated
-        cart_div['hx-get'] = self.url()
-        with cart_div:
-            with table():
-                with thead():
-                    head = tr()
-                    head+= td("SALE LINE ID")
-                    head+= td("PRODUCT ID")
-                    head+= td("PRODUCT NAME ID")
-                    head+= td("PRODUCT QUANTITY ID")
-                    head+= td("PRODUCT PRICE")
-                with tbody():
-                    if lines:
-                        for line in lines:
-                            row=tr()
-                            row+=td(line.id)
-                            row+=td(line.product.id)
-                            row+=td(line.product.name)
-                            row+=td(line.quantity)
-                            row+=td(line.unit_price)
-                    else:
-                        tr(td("No products in cart", colspan=5, syle="text-align:center"))
-        return cart_div
-        #return raw(self.render_template('cart-widget.html', lines=lines))
-
-    def add_product(self, product, quantity = None):
-        pool = Pool()
-        SaleLine = pool.get('sale.line')
-        Product = pool.get('product.product')
-        Party = pool.get('party.party')
-        Shop = pool.get('sale.shop')
-
-        shop = Shop.search([
-            ('id', '=', 1)
-        ])
-
-        with Transaction().set_context(company=shop[0].company.id):
-
-            products = Product.search([
-                ('id', '=', product)
-            ])
-
-            if not products:
-                raise
-
-            print(f'Context: {self.context}')
-
-            #Temporal sale line to testig
-            party = Party.search([
-                ('id', '=', 5295)
-            ])
-
-            product = products[0]
-
-
-            line = SaleLine()
-            #line.sale =
-            line.party = party[0]
-            line.product = product
-            line.on_change_product()
-            print(f'TAXES2: {line.taxes}')
-            line.width = 10
-            line.length = 10
-            line.quantity = 1
-            line.on_change_quantity()
-            #line.on_change_unit_price()
-            #line.shop =
-            SaleLine.create([line._save_values])
-        Trigger.add_trigger(self.updated)
-        #self.updated.trigger()
-        # Create new sale line with the product
-        # Reload the lines in the cart
-        # Reload all the others components
-        #TODO: how we know wich functions of which components we need to trigger?
-        #raise
-        #self.updated.trigger()
-
-##############
-# catalog.py #
-##############
-class CatalogComponent(Component):
-    'Catalog Component'
-    __name__ = 'www.catalog.component'
-    _path = '/catalog'
-
-
-    def render(self):
-        pool = Pool()
-        Product = pool.get('product.product')
-        CatalogProduct = pool.get('www.catalog.product')
-
-        products = Product.search([
-            ('id', 'in', [923, 1507, 156])
-        ])
-
-        catalog_div = div()
-        # In this case WE NEED ALWAYS the str() attribute
-        #for product in products:
-        #    catalog_div.add(CatalogProduct(product=product.id))
-
-        with catalog_div:
-            for product in products:
-                CatalogProduct(product=product.id)
-        #print(f'CATALOG DIV:\n{catalog_div}')
-        return catalog_div
-
-    def product_cart():
-        '''
-        TODO: given a product id and action manage the action of the product in a cart:
-            - add: add the product to the cart
-            - increment: add quantity to a specific product in a cart
-            - decrement: remove quantity in a specific product in a cart
-
-            with all the action, reload the cart (TODO: reload_cart event)
-        '''
-
-        pass
-
-class CatalogProduct(Component):
-    'Catalog Product'
-    __name__ = 'www.catalog.product'
-    _path = '/catalog/product'
-
-    #product = fields.Many2One('product.product', 'Product')
-    product = fields.Char('Product')
-
-    @classmethod
-    def get_url_map(cls):
-        return [
-            Rule('/catalog/product/<int:product>'),
-            Rule('/catalog/product/<int:product>', endpoint='increase'),
-            Rule('/catalog/product/add/<int:product>/', endpoint='add_cart'),
-            Rule('/catalog/product/in_cart/<int:product>', endpoint='product_in_cart'),
-        ]
-
-    def render(self):
-        pool = Pool()
-        Product = pool.get('product.product')
-        # Components
-        ProductC = pool.get('www.product')
-        Catalog = pool.get('www.cart.widget')
-
-        products = Product.search([
-            ('id', '=', self.product)
-        ])
-
-        if not products:
-            raise
-        product = products[0]
-
-        product_div = div()
-        product_div['hx-trigger'] = Catalog.updated
-        product_div['hx-get'] = self.url()
-        with product_div:
-            a(href=ProductC(product=product.id, render=False).url()).add(h2(product.name))
-            p(10)
-            # TODO: hide button if product is in cart
-            add_to_cart = a(id='product-%s' % product.id, href="#").add(p('Add to cart'))
-            add_to_cart['hx-swap'] = 'none'
-            add_to_cart['hx-get'] = self.url('add_cart')
-            #add_to_cart = a(id='product-%s' % product.id, href="#").add(p('Add to cart'))
-        return product_div
-
-    def product_in_cart(self):
-        # Return a mark to the specific product showing is in the cart
-        return raw('Producto en el carrito!')
-
-    def add_cart(self):
-        pool = Pool()
-        CCart = pool.get('www.cart.widget')
-        CCart(render=False).add_product(self.product, 1)
-        print('=== ADD CART ===')
-        #raise
-
-
-class Product(Component):
-    'Product'
-    __name__ = 'www.product'
-    _path = '/product'
-
-    product = fields.Char('Product')
-
-    @classmethod
-    def get_url_map(cls):
-        return [
-            Rule('/product/<int:product>'),
-        ]
-
-    def render(self):
-        pool = Pool()
-        Product = pool.get('product.product')
-        # Components
-        Index = pool.get('www.extranet.index')
-
-        products = Product.search([
-            ('id', '=', self.product)
-        ])
-
-        if not products:
-            raise
-        product = products[0]
-
-        product_div = div()
-        with product_div:
-            a(href=Index(render=False).url()).add(p('Home'))
-            with div():
-                h1(product.name)
-                span('10 €')
-            with div():
-                p(product.description)
-        return product_div
-
-#############
-# portal.py #
-#############
-class Login(Component):
-    'Login'
-    __name__ = 'www.portal.login'
-    _path = '/login'
-
-    email = fields.Char('E-mail')
-    password = fields.Char('Password')
-
-    @classmethod
-    def get_url_map(cls):
-        return [
-
-        ]
-
-    def render(self):
-        pool = Pool()
-        User = pool.get('')
-
-        with form():
-            input(id='email', type='email', placeholder='E-mail')
