@@ -1,7 +1,6 @@
 import os
 import jinja2
 import secrets
-from functools import partial
 from trytond.model import DeactivableMixin, ModelSQL, ModelView, fields
 from trytond.pool import Pool
 from trytond.transaction import Transaction
@@ -10,18 +9,6 @@ from datetime import datetime, timedelta
 from werkzeug.routing import Map
 from werkzeug.wrappers import Response
 from dominate.tags import (div, p)
-
-def dateformat(value, format='medium'):
-    '''Return date time to format
-
-    date|dateformat
-    date|dateformat('full')
-    date|dateformat('short')
-    date|dateformat('dd mm yyyy')
-    '''
-    if not value:
-        return ''
-    return format_date(value, format)
 
 def component(name):
     """
@@ -245,7 +232,6 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
 
     def template_filters(self):
         return {
-            'dateformat': dateformat,
             }
 
 
@@ -355,7 +341,7 @@ class Component(ModelView):
     def load_template(cls, name):
         if '/' in name:
             module, name = name.split('/', 1)
-            path = os.path.join(os.path.dirname(__file__), path, '..', module)
+            path = os.path.join(os.path.dirname(__file__), '..', module)
             path = os.path.abspath(path)
         else:
             path = os.path.abspath(os.path.dirname(__file__))

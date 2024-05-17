@@ -1,43 +1,13 @@
-import os
 import click
-import socket
-import logging
-from datetime import datetime
 from werkzeug import Request
-from werkzeug.exceptions import HTTPException
-from werkzeug.routing import BaseConverter, Map, Rule
 from trytond.config import config
 from trytond.pool import Pool
 from trytond.transaction import Transaction
 
 @click.group()
 def main():
-    'WWW'
+    'Voyager'
     pass
-
-def get_best_language():
-    lang = request.accept_languages.best_match(get_languages())
-    if lang:
-        return lang
-    return get_default_lang()
-
-def get_default_lang():
-    # TODO: Make it configurable
-    return 'ca'
-
-def get_languages():
-    # TODO: Make it configurable
-    languages = ['ca_ES', 'es_ES', 'en_US']
-    if not languages:
-        return []
-    return [x.split('_')[0] for x in languages]
-
-def get_locale():
-    lang = request.path[1:].split('/', 1)[0]
-    if lang in get_languages():
-        return lang
-    else:
-        return get_default_lang()
 
 
 class VoyagerWSGI(object):
