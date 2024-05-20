@@ -3,6 +3,7 @@ from werkzeug import Request
 from trytond.config import config
 from trytond.pool import Pool
 from trytond.transaction import Transaction
+from trytond.modules.voyager import voyager
 
 @click.group()
 def main():
@@ -53,11 +54,15 @@ if app.database:
 @click.option('--host', default='0.0.0.0', help='IP to listen on')
 @click.option('--port', default=5000, help='Port to listen on')
 @click.option('--dev', is_flag=True, help='Development mode')
+@click.option('--disable-cache', is_flag=True, help='Disable cache')
 @click.option('--config-file', default='trytond.conf')
-def run(database, site_type, site_id, user, host, port, dev, config_file):
+def run(database, site_type, site_id, user, host, port, dev, config_file,
+        disable_cache):
     from werkzeug.serving import run_simple
 
     config.update_etc(config_file)
+    if disable_cache:
+        voyager.CACHE_ENABLED = False
     app.database = database
     app.site_type = site_type
     app.site_id = site_id

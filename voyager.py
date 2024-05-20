@@ -2,6 +2,8 @@ import os
 import jinja2
 import secrets
 from trytond.model import DeactivableMixin, ModelSQL, ModelView, fields
+from trytond.cache import Cache, freeze
+from trytond.config import config
 from trytond.pool import Pool
 from trytond.transaction import Transaction
 
@@ -9,6 +11,10 @@ from datetime import datetime, timedelta
 from werkzeug.routing import Map
 from werkzeug.wrappers import Response
 from dominate.tags import (div, p)
+
+CACHE_ENABLED = config.get('voyager', 'cache_enabled', default=True)
+CACHE_TIMEOUT = config.get('voyager', 'cache_timeout', default=60 * 60)
+
 
 def component(name):
     """
@@ -36,6 +42,25 @@ def render_component(name, lazy=False, **kwargs):
     return component.tag()
 
 
+class VoyagerCache(Cache):
+    # Override _key() to remove the session from the context and use the user
+    # instead (when there's a user), otherwise keep the session
+    pass
+
+
+class CacheManager:
+    caches = {}
+
+    @classmethod
+    def get(cls, site_id):
+        database = Transaction().database.name
+        key = (database, site_id)
+        if key not in cls.caches:
+            cls.caches[key] = VoyagerCache('voyager.cache',
+                duration=CACHE_TIMEOUT)
+        return cls.caches[key]
+
+
 class Site(DeactivableMixin, ModelSQL, ModelView):
     'WWW Site'
     __name__ = 'www.site'
@@ -56,7 +81,6 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
     canonical = fields.Char('Canonical')
     author = fields.Char('Author')
     title = fields.Char('Title')
-    css_min = fields.Boolean('CSS Min')
 
     @staticmethod
     def default_session_lifetime():
@@ -113,7 +137,6 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         except:
             raise ValueError('No component found %s' % component_model)
 
-
         print(f'==== ENDPOINT: {endpoint} | ARGS: {args} ====')
 
         if request.method == 'POST':
@@ -126,8 +149,9 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         with Transaction().set_context(site=site):
             session = Session().get(request)
 
+        cache = CacheManager.get(site.id)
         with Transaction().set_context(site=site, path=request.path,
-                session=session):
+                session=session, cache=cache):
             # Get the component object and function
             try:
                 Component = pool.get(component_model)
@@ -300,31 +324,23 @@ class Session(ModelSQL, ModelView):
 
 class Component(ModelView):
     'Component'
-    __slots__ = ['_tag']
+    __slots__ = ['_tag', 'cached']
     _path = None
-
-    @classmethod
-    @property
-    def context(cls):
-        return Transaction().context
-
-    @property
-    def site(cls):
-        return Transaction().context.get('site')
-
-    @property
-    def session(cls):
-        return Transaction().context.get('session')
+    _cached = True
 
     def __init__(self, *args, **kwargs):
         render = True
         if 'render' in kwargs:
             render = kwargs['render']
             kwargs.pop('render')
+        self.cached = self._cached
+        if 'cached' in kwargs:
+            self.cached = self.cached and kwargs['cached']
+            kwargs.pop('cached')
         super().__init__(*args, **kwargs)
         for x in dir(self):
-            #TODO: This function is "hardcoded" by now, we need to search a
-            # method to get only the triggers from the clas
+            # TODO: This function is "hardcoded" by now, we need to search a
+            # method to get only the triggers from the class
             if x == 'updated':
                 if isinstance(getattr(self, x), Trigger):
                     getattr(self, x).name = f"{self.__name__.replace('.','-')}_{x}"
@@ -332,6 +348,21 @@ class Component(ModelView):
         self._tag = None
         if render:
             self.create_tag()
+
+    @classmethod
+    @property
+    def context(cls):
+        return Transaction().context
+
+    @classmethod
+    @property
+    def site(cls):
+        return Transaction().context.get('site')
+
+    @classmethod
+    @property
+    def session(cls):
+        return Transaction().context.get('session')
 
     @property
     def path(self):
@@ -406,8 +437,26 @@ class Component(ModelView):
             self.lazy_content()
         return loading_div
 
+    def get_cache_key(self):
+        if self._fields:
+            key = freeze([getattr(self, x) for x in self._fields])
+        else:
+            key = freeze(tuple())
+        return (self.__name__,) + key
+
+    @property
+    def cache(self):
+        return self.context['cache']
+
     def create_tag(self):
+        if CACHE_ENABLED and self.cached:
+            key = self.get_cache_key()
+            if key and self.cache.get(key):
+                self._tag = self.cache.get(key)
+                return
         self._tag = self.render()
+        if CACHE_ENABLED and self.cached and key:
+            self.cache.set(key, self._tag)
 
     def tag(self):
         if not self._tag:
