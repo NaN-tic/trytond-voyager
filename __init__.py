@@ -3,10 +3,17 @@
 # the full copyright notices and license terms.
 from trytond.pool import Pool
 from . import voyager
+from . import i18n
 
 def register():
     Pool.register(
         voyager.Site,
         voyager.Session,
         voyager.Component,
+        i18n.Translation,
         module='voyager', type_='model')
+    Pool.register(
+        i18n.TranslationSet,
+        i18n.TranslationClean,
+        i18n.TranslationUpdate,
+        module='voyager', type_='wizard')

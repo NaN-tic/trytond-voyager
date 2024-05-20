@@ -200,7 +200,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
 
         web_map = Map()
         endpoint_args = {}
-        for _, Model in pool.iterobject():
+        for key, Model in pool.iterobject():
             if issubclass(Model, Component):
                 for url_map in Model.get_url_map():
                     if not url_map.endpoint:
@@ -358,7 +358,7 @@ class Component(ModelView):
         return {
             'component': component,
             'render_component': render_component,
-        }
+            }
 
     @classmethod
     def render_template(cls, template, **kwargs):
