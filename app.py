@@ -55,12 +55,13 @@ if app.database:
 @click.option('--port', default=5000, help='Port to listen on')
 @click.option('--dev', is_flag=True, help='Development mode')
 @click.option('--disable-cache', is_flag=True, help='Disable cache')
-@click.option('--config-file', default='trytond.conf')
+@click.option('--config-file', default=None)
 def run(database, site_type, site_id, user, host, port, dev, config_file,
         disable_cache):
     from werkzeug.serving import run_simple
 
-    config.update_etc(config_file)
+    if config_file:
+        config.update_etc(config_file)
     if disable_cache:
         voyager.CACHE_ENABLED = False
     app.database = database
