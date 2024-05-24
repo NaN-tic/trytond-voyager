@@ -4,6 +4,7 @@
 from trytond.pool import Pool
 from . import voyager
 from . import i18n
+from . import sale
 
 def register():
     Pool.register(
@@ -17,3 +18,7 @@ def register():
         i18n.TranslationClean,
         i18n.TranslationUpdate,
         module='voyager', type_='wizard')
+    Pool.register(
+        sale.Site,
+        sale.Sale,
+        module='voyager', type_='model', depends=['sale', 'web_shop'])

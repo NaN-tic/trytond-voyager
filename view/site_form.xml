@@ -23,7 +23,5 @@
     <field name="author"/>
     <label name="title"/>
     <field name="title"/>
-    <label name="css_min"/>
-    <field name="css_min"/>
 </form>
 

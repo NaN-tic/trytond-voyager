@@ -5,6 +5,9 @@ from trytond.pool import Pool
 from trytond.transaction import Transaction
 from trytond.modules.voyager import voyager
 
+import os
+from werkzeug.middleware.shared_data import SharedDataMiddleware
+
 @click.group()
 def main():
     'Voyager'
@@ -70,7 +73,9 @@ def run(database, site_type, site_id, user, host, port, dev, config_file,
     app.user = user
     app.start()
 
-    run_simple(host, port, app, use_debugger=True, use_reloader=dev)
+    run_simple(host, port, SharedDataMiddleware(app, {
+        '/static': os.path.join(os.path.dirname(__file__), 'static')}),
+        use_debugger=True, use_reloader=dev)
 
 if __name__ == '__main__':
     main()

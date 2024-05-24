@@ -1,0 +1,8 @@
+<data>
+    <xpath expr="/form/field[@name='title']" position="after">
+        <separator id="sale_configuration" string="Sale configuration" colspan="4"/>
+        <label name="web_shop"/>
+        <field name="web_shop"/>
+	    <newline/>
+    </xpath>
+</data>

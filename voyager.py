@@ -119,6 +119,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         web_map, adapter, endpoint_args = site.get_site_info()
 
         # Get the component and function to execute
+        print(f'Request: {request} | Path: {request.path}')
         endpoint, args = adapter.match(request.path)
         component_model = endpoint.split('/')[0]
         component_function = None
@@ -138,12 +139,19 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
             raise ValueError('No component found %s' % component_model)
 
         print(f'==== ENDPOINT: {endpoint} | ARGS: {args} ====')
-
+        print(f'Transaction {Transaction().context}')
         if request.method == 'POST':
             # In case we have a post method, use the request form as args. This
             # means that we have a componet for each form and the form and
             # the componet will need to have the same number of fields.
-            args = request.form
+            # If we have any valu in the original args, we add the request
+            # forms values to the existent args dictionary, if we dont have any
+            # args, replace the original args with the request form values.
+            if args:
+                for request_key in dict(request.form):
+                    args[request_key] = request.form[request_key]
+            else:
+                args = request.form
 
         # Check the session
         with Transaction().set_context(site=site):
@@ -187,9 +195,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
             # Render the content and prepare the response. The DOMinate render
             # can handle the raw() objects and any tag (html_tag) we send any
             # other format will raise a traceback
-            #print(f'\nRES: {res} \nTYPE: {type(res)}\n')
-
-            if not isinstance(response, Response):
+            if response and not isinstance(response, Response):
                 if not response:
                     response = ''
                 #TODO: Temporary solution until DOMinate render htmx tags:
@@ -282,10 +288,10 @@ class Session(ModelSQL, ModelView):
             else:
                 session, = sessions
 
-            if session.expiration_date < datetime.now():
-                create_session = True
-            else:
-                session.update_expiration_date()
+                if session.expiration_date < datetime.now():
+                    create_session = True
+                else:
+                    session.update_expiration_date()
         else:
             create_session = True
 

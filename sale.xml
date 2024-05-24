@@ -1,0 +1,9 @@
+<tryton>
+    <data depends="sale,web_shop">
+        <record model="ir.ui.view" id="site_form_sale">
+            <field name="model">www.site</field>
+            <field name="inherit" ref="voyager.site_form"/>
+            <field name="name">site_form_sale</field>
+        </record>
+    </data>
+</tryton>
