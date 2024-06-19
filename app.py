@@ -58,9 +58,10 @@ if app.database:
 @click.option('--port', default=5000, help='Port to listen on')
 @click.option('--dev', is_flag=True, help='Development mode')
 @click.option('--disable-cache', is_flag=True, help='Disable cache')
+@click.option('--static-folder', default="static", help="Path to static folder, need to be relative to the voyager module. (../module/static_folder)")
 @click.option('--config-file', default=None)
-def run(database, site_type, site_id, user, host, port, dev, config_file,
-        disable_cache):
+def run(database, site_type, site_id, user, host, port, dev, disable_cache,
+        static_folder, config_file):
     from werkzeug.serving import run_simple
 
     if config_file:
@@ -74,7 +75,7 @@ def run(database, site_type, site_id, user, host, port, dev, config_file,
     app.start()
 
     run_simple(host, port, SharedDataMiddleware(app, {
-        '/static': os.path.join(os.path.dirname(__file__), 'static')}),
+        '/static': os.path.join(os.path.dirname(__file__), static_folder)}),
         use_debugger=True, use_reloader=dev)
 
 if __name__ == '__main__':

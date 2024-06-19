@@ -175,7 +175,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
             function_variables = {}
             instance_variables = {}
             for arg in args.keys():
-                if arg in function.__code__.co_varnames:
+                if arg in function.__code__.co_varnames[:function.__code__.co_argcount]:
                     function_variables[arg] = args[arg]
                 else:
                     instance_variables[arg] = args[arg]
@@ -473,7 +473,7 @@ class Component(ModelView):
     def get_url_map(cls):
         """
         Return a list with all the new rules this component add to the site.
-        TODO: this function needs to be modified in every module
+        This function needs to be modified in every component
         """
         return []
 
@@ -490,6 +490,7 @@ class Component(ModelView):
             endpoint = f'{self.__class__.__name__}/{endpoint}'
 
         # Always expect the elment here
+        # TODO: we need to accept a same endpoint with multiples rules with differents args
         for arg in endpoint_args[endpoint]:
             kwargs[arg] = getattr(self, arg)
         return adapter.build(endpoint, kwargs)
