@@ -187,9 +187,11 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
             if function_variables:
                 instance_variables['render'] = False
                 component = Component(**instance_variables)
+                #TODO: we need to handle the error pages here
                 response = getattr(component, component_function)(function_variables)
             else:
                 component = Component(**instance_variables)
+                #TODO: we need to handle the error pages here
                 response = getattr(component, component_function)()
 
             # Render the content and prepare the response. The DOMinate render
