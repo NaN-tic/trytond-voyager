@@ -12,14 +12,14 @@
         </record>
 
         <record model="ir.model.access" id="site_access">
-            <field name="model" search="[('model', '=', 'www.site')]"/>
+            <field name="model">www.site</field>
             <field name="perm_read" eval="False"/>
             <field name="perm_write" eval="False"/>
             <field name="perm_create" eval="False"/>
             <field name="perm_delete" eval="False"/>
         </record>
         <record model="ir.model.access" id="site_access_admin">
-            <field name="model" search="[('model', '=', 'www.site')]"/>
+            <field name="model">www.site</field>
             <field name="group" ref="res.group_admin"/>
             <field name="perm_read" eval="True"/>
             <field name="perm_write" eval="True"/>
