@@ -273,6 +273,7 @@ class Session(ModelSQL, ModelView):
     site = fields.Many2One('www.site', 'Site', required=True)
     session_id = fields.Char('Session ID', required=True)
     user = fields.Many2One('web.user', 'User')
+    system_user = fields.Many2One('res.user', 'System User')
     expiration_date = fields.DateTime('Expiration Date', required=True)
     #TODO: create cron to clean sessions
 
@@ -312,6 +313,11 @@ class Session(ModelSQL, ModelView):
     def set_user(self, user):
         self.user = user
         self.save()
+
+    def set_system_user(self, user):
+        self.system_user = user
+        self.save()
+
 
     @classmethod
     def new(cls):
