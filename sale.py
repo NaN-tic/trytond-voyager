@@ -1,4 +1,4 @@
-from trytond.pool import Pool, PoolMeta
+from trytond.pool import PoolMeta
 from trytond.model import fields
 
 class Site(metaclass=PoolMeta):
