@@ -6,7 +6,6 @@ from trytond.cache import Cache, freeze
 from trytond.config import config
 from trytond.pool import Pool
 from trytond.transaction import Transaction
-from trytond.config import config
 
 from datetime import datetime, timedelta
 from werkzeug.routing import Map
