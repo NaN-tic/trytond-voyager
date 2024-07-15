@@ -6,6 +6,7 @@ from trytond.cache import Cache, freeze
 from trytond.config import config
 from trytond.pool import Pool
 from trytond.transaction import Transaction
+from trytond.config import config
 
 from datetime import datetime, timedelta
 from werkzeug.routing import Map
@@ -103,6 +104,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
     def dispatch(cls, site_type, site_id, request):
         pool = Pool()
         Session = pool.get('www.session')
+        user = config.get('voyager', 'user')
 
         if site_id:
             site = cls(site_id)
@@ -158,8 +160,10 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
             session = Session().get(request)
 
         cache = CacheManager.get(site.id)
+        system_user = session.system_user and session.system_user.id
+        user = system_user or user
         with Transaction().set_context(site=site, path=request.path,
-                session=session, cache=cache):
+                session=session, cache=cache), Transaction().set_user(user):
             # Get the component object and function
             try:
                 Component = pool.get(component_model)
