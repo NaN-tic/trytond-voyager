@@ -100,11 +100,11 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         return View._path
 
     @classmethod
-    def dispatch(cls, site_type, site_id, request):
+    def dispatch(cls, site_type, site_id, request, user=None):
         pool = Pool()
         Session = pool.get('www.session')
-        user = config.get('voyager', 'user')
-
+        if not user:
+            user = config.getint('voyager', 'user')
         if site_id:
             site = cls(site_id)
         else:
