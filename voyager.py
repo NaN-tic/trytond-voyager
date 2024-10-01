@@ -1,6 +1,7 @@
 import os
 import jinja2
 import secrets
+import markdown
 from trytond.model import DeactivableMixin, ModelSQL, ModelView, fields
 from trytond.cache import Cache, freeze
 from trytond.config import config
@@ -59,6 +60,14 @@ class CacheManager:
             cls.caches[key] = VoyagerCache('voyager.cache',
                 duration=CACHE_TIMEOUT)
         return cls.caches[key]
+
+
+class VoyagerContext(dict):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.site = None
+        self.session = None
+        self.cache = None
 
 
 class Site(DeactivableMixin, ModelSQL, ModelView):
@@ -161,8 +170,9 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         cache = CacheManager.get(site.id)
         system_user = session.system_user and session.system_user.id
         user = system_user or user
-        with Transaction().set_context(site=site, path=request.path,
-                session=session, cache=cache), Transaction().set_user(user):
+        voyager_context = VoyagerContext(site=site, session=session, cache=cache)
+        with Transaction().set_context(voyager_context=voyager_context, path=request.path,
+            company=site.web_shop.company.id, user=user):
             # Get the component object and function
             try:
                 Component = pool.get(component_model)
@@ -269,6 +279,25 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         return {
             }
 
+    def rendermarkdown(self, text):
+        '''Return html text from markdown format'''
+        def header_level(text):
+            for count in range(5, 0, -1):
+                hs = str(count)
+                hr = str(count+1)
+                text = text.replace(f'<h{hs}', f'<h{hr}').replace(
+                    f'</h{hs}>', f'</h{hr}>')
+            return text
+
+        if not text:
+            return ''
+        try:
+            text = markdown.markdown(text, output_format='xhtml')
+        except Exception as e:
+            print(f'Error: {e}')
+            return ''
+        return text
+
 
 class Session(ModelSQL, ModelView):
     'Session'
@@ -374,12 +403,14 @@ class Component(ModelView):
     @classmethod
     @property
     def site(cls):
-        return Transaction().context.get('site')
+        if Transaction().context.get('voyager_context'):
+            return Transaction().context.get('voyager_context').get('site')
 
     @classmethod
     @property
     def session(cls):
-        return Transaction().context.get('session')
+        if Transaction().context.get('voyager_context'):
+            return Transaction().context.get('voyager_context').get('session')
 
     @property
     def path(self):
@@ -463,7 +494,8 @@ class Component(ModelView):
 
     @property
     def cache(self):
-        return self.context['cache']
+        if self.context.get('voyager_context'):
+            return self.context.get('voyager_context').get('cache')
 
     def create_tag(self):
         if CACHE_ENABLED and self.cached:
@@ -492,7 +524,7 @@ class Component(ModelView):
         """
         Given an endpoint and a set of arguments, render and return an url.
         """
-        web_map, adapter, endpoint_args =self.context['site'].get_site_info()
+        web_map, adapter, endpoint_args = self.site.get_site_info()
 
         #TODO: set context here to set language in url
         if not endpoint:
