@@ -109,10 +109,12 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         return View._path
 
     @classmethod
-    def dispatch(cls, site_type, site_id, request):
+    def dispatch(cls, site_type, site_id, request, user=None):
         pool = Pool()
         Session = pool.get('www.session')
-        user = config.get('voyager', 'user')
+        User = pool.get('res.user')
+        if not user:
+            user = config.get('voyager', 'user')
 
         if site_id:
             site = cls(site_id)
@@ -172,7 +174,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         user = system_user or user
         voyager_context = VoyagerContext(site=site, session=session, cache=cache)
         with Transaction().set_context(voyager_context=voyager_context, path=request.path,
-            company=site.web_shop.company.id, user=user):
+            company=User(user).company.id, user=user):
             # Get the component object and function
             try:
                 Component = pool.get(component_model)
