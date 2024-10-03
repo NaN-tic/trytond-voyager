@@ -62,12 +62,17 @@ class CacheManager:
         return cls.caches[key]
 
 
+# The reason we inherit from dict is that a VoyagerContext instance will be
+# stored in the context which Tryton will try to serialize (convert to json) if
+# it needs to execute a function in the worker. Trying to serialize
+# VoyagerContext will crash unless it is from a type JSONEncoder understands by
+# default
 class VoyagerContext(dict):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.site = None
-        self.session = None
-        self.cache = None
+    def __init__(self, site=None, session=None, cache=None):
+        super().__init__()
+        self.site = site
+        self.session = session
+        self.cache = cache
 
 
 class Site(DeactivableMixin, ModelSQL, ModelView):
@@ -399,14 +404,14 @@ class Component(ModelView):
     @classmethod
     @property
     def site(cls):
-        if Transaction().context.get('voyager_context'):
-            return Transaction().context.get('voyager_context').get('site')
+        if hasattr(Transaction().context.get('voyager_context'), 'site'):
+            return Transaction().context.get('voyager_context').site
 
     @classmethod
     @property
     def session(cls):
-        if Transaction().context.get('voyager_context'):
-            return Transaction().context.get('voyager_context').get('session')
+        if hasattr(Transaction().context.get('voyager_context'), 'session'):
+            return Transaction().context.get('voyager_context').session
 
     @property
     def path(self):
@@ -490,8 +495,8 @@ class Component(ModelView):
 
     @property
     def cache(self):
-        if self.context.get('voyager_context'):
-            return self.context.get('voyager_context').get('cache')
+        if hasattr(self.context.get('voyager_context'), 'cache'):
+            return self.context.get('voyager_context').cache
 
     def create_tag(self):
         if CACHE_ENABLED and self.cached:
