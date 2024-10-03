@@ -488,7 +488,7 @@ class Component(ModelView):
 
     def get_cache_key(self):
         if self._fields:
-            key = freeze([getattr(self, x) for x in self._fields])
+            key = freeze([getattr(self, x, None) for x in self._fields])
         else:
             key = freeze(tuple())
         return (self.__name__,) + key
