@@ -1,7 +1,8 @@
 import os
 import jinja2
-import secrets
+import logging
 import markdown
+import secrets
 from trytond.model import DeactivableMixin, ModelSQL, ModelView, fields
 from trytond.cache import Cache, freeze
 from trytond.config import config
@@ -15,6 +16,8 @@ from dominate.tags import (div, p)
 
 CACHE_ENABLED = config.get('voyager', 'cache_enabled', default=True)
 CACHE_TIMEOUT = config.get('voyager', 'cache_timeout', default=60 * 60)
+
+logger = logging.getLogger(__name__)
 
 
 def component(name):
@@ -256,11 +259,12 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
             if issubclass(Model, Component):
                 for url_map in Model.get_url_map():
                     if not url_map.endpoint:
-                        # If we dont have an endpoint, we need to set as edpoint
+                        # If we dont have an endpoint, we need to set as endpoint
                         # the model name
+                        # TODO: Do we really want a default endpoint?
                         url_map.endpoint = Model.__name__
                     else:
-                        # If we have an edpoint, it means we want to execute a
+                        # If we have an endpoint, it means we want to execute a
                         # function, we need to set the format:
                         # model_name/function
                         url_map.endpoint = f'{Model.__name__}/{url_map.endpoint}'
@@ -512,7 +516,10 @@ class Component(ModelView):
                 return
         self._tag = self.render()
         if CACHE_ENABLED and self.cached and key:
-            self.cache.set(key, self._tag)
+            try:
+                self.cache.set(key, self._tag)
+            except RecursionError:
+                logger.warning('RecursionError setting cache key: %s', key)
 
     def tag(self):
         if not self._tag:
