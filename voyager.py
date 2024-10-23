@@ -57,6 +57,8 @@ class CacheManager:
 
     @classmethod
     def get(cls, site_id):
+        if not CACHE_ENABLED:
+            return None
         database = Transaction().database.name
         key = (database, site_id)
         if key not in cls.caches:
@@ -117,13 +119,14 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         return View._path
 
     @classmethod
-    def dispatch(cls, site_type, site_id, request, user=None):
+    def dispatch(cls, site_type, site_id, request, user_id=None):
         pool = Pool()
         Session = pool.get('www.session')
         User = pool.get('res.user')
-        if not user:
-            user = config.get('voyager', 'user')
+        if not user_id:
+            user_id = config.get('voyager', 'user')
 
+        assert type(site_id), int
         if site_id:
             site = cls(site_id)
         else:
@@ -178,11 +181,13 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
             session = Session().get(request)
 
         cache = CacheManager.get(site.id)
-        system_user = session.system_user and session.system_user.id
-        user = system_user or user
+        system_user_id = session.system_user and session.system_user.id
+        user_id = system_user_id or user_id
         voyager_context = VoyagerContext(site=site, session=session, cache=cache)
-        with Transaction().set_context(voyager_context=voyager_context, path=request.path,
-            company=User(user).company.id, user=user):
+        user = User(user_id)
+        company_id = user.company and user.company.id
+        with Transaction().set_context(voyager_context=voyager_context,
+            path=request.path, company=company_id, user=user_id):
             # Get the component object and function
             try:
                 Component = pool.get(component_model)
