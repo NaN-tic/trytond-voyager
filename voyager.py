@@ -14,8 +14,8 @@ from werkzeug.routing import Map
 from werkzeug.wrappers import Response
 from dominate.tags import (div, p)
 
-CACHE_ENABLED = config.get('voyager', 'cache_enabled', default=True)
-CACHE_TIMEOUT = config.get('voyager', 'cache_timeout', default=60 * 60)
+CACHE_ENABLED = config.getboolean('voyager', 'cache_enabled', default=True)
+CACHE_TIMEOUT = config.getint('voyager', 'cache_timeout', default=60 * 60)
 
 logger = logging.getLogger(__name__)
 
@@ -209,8 +209,8 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                     instance_variables[arg] = args[arg]
             print(f'Function variables: {function_variables} \n Instance variables: {instance_variables}')
 
-            #TODO: make more efficent the way we get the compoent, right
-            # now, even if we dont use the compoent we "execute" the render
+            # TODO: make more efficent the way we get the component, right
+            # now, even if we don't use the compoent we "execute" the render
             # function
             if function_variables:
                 instance_variables['render'] = False
