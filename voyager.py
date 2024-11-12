@@ -181,13 +181,20 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
             session = Session().get(request)
 
         cache = CacheManager.get(site.id)
+        voyager_context = VoyagerContext(site=site, session=session, cache=cache)
         system_user_id = session.system_user and session.system_user.id
         user_id = system_user_id or user_id
-        voyager_context = VoyagerContext(site=site, session=session, cache=cache)
-        user = User(user_id)
-        company_id = user.company and user.company.id
+        if cache:
+            context = cache.get('user-preferences-%d' % user_id)
+        else:
+            context = None
+        if not context:
+            user = User(user_id)
+            context = User._get_preferences(user, context_only=True)
+            if cache:
+                cache.set('user-preferences-%d' % user_id, context)
         with Transaction().set_context(voyager_context=voyager_context,
-            path=request.path, company=company_id, user=user_id):
+                path=request.path, **context):
             # Get the component object and function
             try:
                 Component = pool.get(component_model)
