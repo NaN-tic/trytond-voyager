@@ -73,11 +73,12 @@ class CacheManager:
 # VoyagerContext will crash unless it is from a type JSONEncoder understands by
 # default
 class VoyagerContext(dict):
-    def __init__(self, site=None, session=None, cache=None):
+    def __init__(self, site=None, session=None, cache=None, request=None):
         super().__init__()
         self.site = site
         self.session = session
         self.cache = cache
+        self.request = request
 
 
 class Site(DeactivableMixin, ModelSQL, ModelView):
@@ -181,7 +182,8 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
             session = Session().get(request)
 
         cache = CacheManager.get(site.id)
-        voyager_context = VoyagerContext(site=site, session=session, cache=cache)
+        voyager_context = VoyagerContext(site=site, session=session,
+            cache=cache, request=request)
         system_user_id = session.system_user and session.system_user.id
         user_id = system_user_id or user_id
         if cache:
