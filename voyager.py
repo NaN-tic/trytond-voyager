@@ -1,18 +1,18 @@
-import os
-import jinja2
 import logging
-import markdown
+import os
 import secrets
-from trytond.model import DeactivableMixin, ModelSQL, ModelView, fields
+from datetime import datetime, timedelta
+
+import jinja2
+import markdown
+from dominate.tags import div, p
 from trytond.cache import Cache, freeze
 from trytond.config import config
+from trytond.model import DeactivableMixin, ModelSQL, ModelView, fields
 from trytond.pool import Pool
 from trytond.transaction import Transaction
-
-from datetime import datetime, timedelta
 from werkzeug.routing import Map
 from werkzeug.wrappers import Response
-from dominate.tags import (div, p)
 
 CACHE_ENABLED = config.getboolean('voyager', 'cache_enabled', default=True)
 CACHE_TIMEOUT = config.getint('voyager', 'cache_timeout', default=60 * 60)
@@ -246,7 +246,8 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
             if Trigger.get_triggers():
                 response.headers['HX-Trigger'] = ', '.join(
                     list(Trigger.get_triggers()))
-            response.set_cookie('session_id', session.session_id)
+            if response:
+                response.set_cookie('session_id', session.session_id)
             return response
 
     def template_context(self):
