@@ -119,6 +119,9 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
             View = view
         return View._path
 
+    def get_cache(self, session, request):
+        return CacheManager.get(self.id)
+
     @classmethod
     def dispatch(cls, site_type, site_id, request, user_id=None):
         pool = Pool()
@@ -181,7 +184,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         with Transaction().set_context(site=site):
             session = Session().get(request)
 
-        cache = CacheManager.get(site.id)
+        cache = site.get_cache(session, request)
         voyager_context = VoyagerContext(site=site, session=session,
             cache=cache, request=request)
         system_user_id = session.system_user and session.system_user.id
@@ -524,13 +527,14 @@ class Component(ModelView):
             return self.context.get('voyager_context').cache
 
     def create_tag(self):
-        if CACHE_ENABLED and self.cached:
+        use_cache = CACHE_ENABLED and self.cached and self.cache
+        if use_cache:
             key = self.get_cache_key()
             if key and self.cache.get(key):
                 self._tag = self.cache.get(key)
                 return
         self._tag = self.render()
-        if CACHE_ENABLED and self.cached and key:
+        if use_cache and key:
             try:
                 self.cache.set(key, self._tag)
             except RecursionError:
