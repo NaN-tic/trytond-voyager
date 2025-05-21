@@ -5,6 +5,9 @@ from trytond.pool import Pool
 from . import voyager
 from . import i18n
 from . import sale
+from .tools import slugify
+
+__all__ = ['register', 'slugify']
 
 def register():
     Pool.register(
