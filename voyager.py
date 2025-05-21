@@ -19,7 +19,6 @@ CACHE_TIMEOUT = config.getint('voyager', 'cache_timeout', default=60 * 60)
 
 logger = logging.getLogger(__name__)
 
-
 def component(name):
     """
     Given a component __name__, return the component object
