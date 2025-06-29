@@ -270,6 +270,11 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         '''
         pool = Pool()
 
+        context = Transaction().context
+        site_info_cache = context.get('site_info_cache', None)
+        if site_info_cache:
+            return site_info_cache
+
         web_map = Map()
         endpoint_args = {}
         for key, Model in pool.iterobject():
@@ -301,7 +306,9 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                     web_map.add(url_map)
 
         adapter = web_map.bind(self.url, '/')
-        return web_map, adapter, endpoint_args
+        res = web_map, adapter, endpoint_args
+        Transaction().set_context(site_info_cache=res)
+        return res
 
     def template_filters(self):
         return {
