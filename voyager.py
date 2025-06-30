@@ -72,12 +72,15 @@ class CacheManager:
 # VoyagerContext will crash unless it is from a type JSONEncoder understands by
 # default
 class VoyagerContext(dict):
-    def __init__(self, site=None, session=None, cache=None, request=None):
+    def __init__(self, site=None, session=None, cache=None, request=None,
+            adapter=None, endpoint_args=None):
         super().__init__()
         self.site = site
         self.session = session
         self.cache = cache
         self.request = request
+        self.adapter = adapter
+        self.endpoint_args = endpoint_args
 
 
 class Site(DeactivableMixin, ModelSQL, ModelView):
@@ -185,7 +188,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
 
         cache = site.get_cache(session, request)
         voyager_context = VoyagerContext(site=site, session=session,
-            cache=cache, request=request)
+            cache=cache, request=request, adapter=adapter, endpoint_args=endpoint_args)
         system_user_id = session.system_user and session.system_user.id
         user_id = system_user_id or user_id
         if cache:
@@ -270,11 +273,6 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         '''
         pool = Pool()
 
-        context = Transaction().context
-        site_info_cache = context.get('site_info_cache', None)
-        if site_info_cache:
-            return site_info_cache
-
         web_map = Map()
         endpoint_args = {}
         for key, Model in pool.iterobject():
@@ -306,9 +304,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                     web_map.add(url_map)
 
         adapter = web_map.bind(self.url, '/')
-        res = web_map, adapter, endpoint_args
-        Transaction().set_context(site_info_cache=res)
-        return res
+        return web_map, adapter, endpoint_args
 
     def template_filters(self):
         return {
@@ -447,6 +443,16 @@ class Component(ModelView):
         if hasattr(Transaction().context.get('voyager_context'), 'session'):
             return Transaction().context.get('voyager_context').session
 
+    @classmethod
+    def adapter(cls):
+        if hasattr(Transaction().context.get('voyager_context'), 'adapter'):
+            return Transaction().context.get('voyager_context').adapter
+
+    @classmethod
+    def endpoint_args(cls):
+        if hasattr(Transaction().context.get('voyager_context'), 'endpoint_args'):
+            return Transaction().context.get('voyager_context').endpoint_args
+
     @property
     def path(self):
         return self._path
@@ -563,7 +569,8 @@ class Component(ModelView):
         """
         Given an endpoint and a set of arguments, render and return an url.
         """
-        web_map, adapter, endpoint_args = self.site.get_site_info()
+        adapter = self.adapter()
+        endpoint_args = self.endpoint_args()
 
         #TODO: set context here to set language in url
         if not endpoint:
