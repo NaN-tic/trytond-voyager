@@ -366,7 +366,8 @@ class Session(ModelSQL, ModelView):
         return session
 
     def update_expiration_date(self):
-        if (self.expiration_date + timedelta(
+        last_update = self.write_date or self.create_date
+        if (last_update + timedelta(
                 seconds=self.site.session_lifetime_update_frequency) <
                 datetime.now()):
             self.expiration_date = (datetime.now() +
