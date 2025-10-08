@@ -427,20 +427,17 @@ class Component(ModelView):
         if render:
             self.create_tag()
 
-    @classmethod
     @property
-    def context(cls):
+    def context(self):
         return Transaction().context
 
-    @classmethod
     @property
-    def site(cls):
+    def site(self):
         if hasattr(Transaction().context.get('voyager_context'), 'site'):
             return Transaction().context.get('voyager_context').site
 
-    @classmethod
     @property
-    def session(cls):
+    def session(self):
         if hasattr(Transaction().context.get('voyager_context'), 'session'):
             return Transaction().context.get('voyager_context').session
 
