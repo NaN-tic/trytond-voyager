@@ -323,7 +323,8 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         if not text:
             return ''
         try:
-            text = markdown.markdown(text, output_format='xhtml')
+            text = markdown.markdown(text, output_format='xhtml',
+                extensions=['tables'])
         except Exception as e:
             print(f'Error: {e}')
             return ''
