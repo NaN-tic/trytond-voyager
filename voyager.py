@@ -132,7 +132,6 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         if not user_id:
             user_id = config.get('voyager', 'user')
 
-        assert type(site_id), int
         if site_id:
             site = cls(site_id)
         else:
