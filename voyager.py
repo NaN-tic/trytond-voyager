@@ -216,10 +216,25 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
             function_variables = {}
             instance_variables = {}
             for arg in args.keys():
+                value = args[arg]
+                if hasattr(Component, arg):
+                    if getattr(Component, arg) and hasattr(
+                            getattr(Component, arg), 'model_name'):
+                        Model = pool.get(getattr(Component, arg).model_name)
+                        if hasattr(Model, 'from_request'):
+                            value = Model.from_request(site, args[arg],
+                                Component.__name__)
+                        else:
+                            # If we found a model and we dont use "from_request",
+                            # check if the id exists, if not exists, set value
+                            # to None
+                            if not Model.search([('id', '=', args[arg])]):
+                                value = None
+
                 if arg in function.__code__.co_varnames[:function.__code__.co_argcount]:
-                    function_variables[arg] = args[arg]
+                    function_variables[arg] = value
                 else:
-                    instance_variables[arg] = args[arg]
+                    instance_variables[arg] = value
             print(f'Function variables: {function_variables} \n Instance variables: {instance_variables}')
 
             # TODO: make more efficent the way we get the component, right
@@ -579,7 +594,13 @@ class Component(ModelView):
         # Always expect the elment here
         # TODO: we need to accept a same endpoint with multiples rules with differents args
         for arg in endpoint_args[endpoint]:
-            kwargs[arg] = getattr(self, arg)
+            value = getattr(self, arg)
+            if hasattr(value, '__name__'):
+                if hasattr(value, 'to_request'):
+                    value = value.to_request(self.site, self.__name__)
+                else:
+                    value = value.id
+            kwargs[arg] = value
         return adapter.build(endpoint, kwargs)
 
 
@@ -599,3 +620,13 @@ class Trigger():
     @staticmethod
     def get_triggers():
         return Transaction().context.get('triggers', set([]))
+
+
+class VoyagerURL():
+
+    def to_request(self, site, component):
+        raise NotImplementedError('Method to_request not implemented')
+
+    @classmethod
+    def from_request(cls, site, value, component):
+        raise NotImplementedError('Method to_request not implemented')
