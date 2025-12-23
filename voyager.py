@@ -8,11 +8,14 @@ import markdown
 from dominate.tags import div, p
 from trytond.cache import Cache, freeze
 from trytond.config import config
-from trytond.model import DeactivableMixin, ModelSQL, ModelView, fields
+from trytond.model import (DeactivableMixin, ModelSQL, ModelView, fields,
+    dualmethod)
 from trytond.pool import Pool
 from trytond.transaction import Transaction
-from werkzeug.routing import Map
+from werkzeug.routing import Map, Rule
 from werkzeug.wrappers import Response
+from werkzeug.exceptions import HTTPException
+from werkzeug.utils import redirect
 
 CACHE_ENABLED = config.getboolean('voyager', 'cache_enabled', default=True)
 CACHE_TIMEOUT = config.getint('voyager', 'cache_timeout', default=60 * 60)
@@ -144,11 +147,26 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 site.type = site_type
                 site.url = request.url_root
                 site.save()
-        web_map, adapter, endpoint_args = site.get_site_info()
+        web_map, adapter, endpoint_args, error_handlers = site.get_site_info()
 
         # Get the component and function to execute
         print(f'Request: {request} | Path: {request.path}')
-        endpoint, args = adapter.match(request.path)
+        try:
+            endpoint, args = adapter.match(request.path)
+        except HTTPException as e:
+            # HTTPException is the mixin used for all the http erros from
+            # werkzeug, in the base class we have always the code, name and
+            # description attributes
+            if e.code in error_handlers:
+                endpoint = error_handlers[e.code]
+                #TODO: we need to decide here what we sent to the exception
+                # defaults functions
+                return redirect(adapter.build(endpoint.__name__, None))
+                #TODO: we cant use the url function because we dont have the
+                # adapter at this point
+                #error_url = endpoint.url()
+            else:
+                raise e
         component_model = endpoint.split('/')[0]
         component_function = None
 
@@ -289,7 +307,44 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
 
         web_map = Map()
         endpoint_args = {}
+        error_handlers = {}
         for key, Model in pool.iterobject():
+            # TODO: Using this if /elif structure we can make compatible both
+            # systems, the actual system using Components and get_url_map
+            # function to get the url_map and the new system using Endpoints
+            # with the _url. We need to deprecate the Component system and use
+            # only the Endpoint system.
+            if issubclass(Model, Endpoint):
+                if not Model._url:
+                    raise KeyError('Missing url in endpoint %s' % Model.__name__)
+
+                if Model._methods:
+                    methods = Model._methods
+                elif Model._method:
+                    methods = [Model._method]
+
+                url_map = Rule(Model._url, endpoint = Model.__name__,
+                    methods=methods)
+
+                #TODO: we can have more than one model per status? Right now we
+                # have only one page for each status (the las one we read)
+                if Model._status:
+                    error_handlers[Model._status] = Model
+                elif Model._statuses:
+                    for status in Model._statuses:
+                        error_handlers[status] = Model
+
+                args = []
+                for segment in str(url_map).split('/'):
+                    if segment.startswith('<') and segment.endswith('>'):
+                        arg = segment.split(':')[-1].replace('>','')
+                        args.append(arg)
+                if (url_map.endpoint in endpoint_args and
+                        endpoint_args[url_map.endpoint] != args):
+                    raise KeyError('Incorrect args in endpoint %s' % url_map.endpoint)
+
+                endpoint_args[url_map.endpoint] = args
+                web_map.add(url_map)
             if issubclass(Model, Component):
                 for url_map in Model.get_url_map():
                     if not url_map.endpoint:
@@ -318,7 +373,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                     web_map.add(url_map)
 
         adapter = web_map.bind(self.url, '/')
-        return web_map, adapter, endpoint_args
+        return web_map, adapter, endpoint_args, error_handlers
 
     def template_filters(self):
         return {
@@ -620,6 +675,60 @@ class Trigger():
     @staticmethod
     def get_triggers():
         return Transaction().context.get('triggers', set([]))
+
+
+class Endpoint(Component):
+    'Endpoint'
+
+    _url = None
+    _method = 'GET'
+    _methods = []
+    _status = None
+    _statuses = []
+
+    def __init__(self, *args, **kwargs):
+        render = True
+        if 'render' in kwargs:
+            render = kwargs['render']
+            kwargs.pop('render')
+        self.cached = self._cached
+        if 'cached' in kwargs:
+            self.cached = self.cached and kwargs['cached']
+            kwargs.pop('cached')
+        super().__init__(*args, **kwargs)
+        for x in dir(self):
+            # TODO: This function is "hardcoded" by now, we need to search a
+            # method to get only the triggers from the class
+            if x == 'updated':
+                if isinstance(getattr(self, x), Trigger):
+                    getattr(self, x).name = f"{self.__name__.replace('.','-')}_{x}"
+
+    @dualmethod
+    def url(cls, **kwargs):
+        pool = Pool()
+
+        values = {}
+        for key in kwargs.keys():
+            if not hasattr(cls, key):
+                # Key not found
+                value = kwargs[key]
+            else:
+                # Key found, check if it is a model
+                field = getattr(cls, key)
+                if hasattr(field, 'model_name'):
+                    value = kwargs[key]
+
+                    Model = pool.get(field.model_name)
+                    if hasattr(Model, 'to_request'):
+                        if Model.search([('id', '=', kwargs[key])]):
+                            model = Model(kwargs[key])
+                            value = model.to_request(cls.site, cls.__name__)
+            values[key] = value
+
+        #Minimum required to handle the url building
+        adapter = cls.adapter()
+        #import pdb; pdb.set_trace()
+        return adapter.build(cls.__name__, values)
 
 
 class VoyagerURL():
