@@ -11,7 +11,9 @@ from trytond.config import config
 from trytond.model import (DeactivableMixin, ModelSQL, ModelView, fields,
     dualmethod)
 from trytond.pool import Pool
+from trytond.wizard import Button, StateTransition, StateView, Wizard
 from trytond.transaction import Transaction
+from trytond.tools import grouped_slice
 from werkzeug.routing import Map, Rule
 from werkzeug.wrappers import Response
 from werkzeug.exceptions import HTTPException
@@ -106,6 +108,9 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
     canonical = fields.Char('Canonical')
     author = fields.Char('Author')
     title = fields.Char('Title')
+    route_method = fields.Selection([
+        ('endpoint', 'Endpoint'),
+        ('uri', 'URI')], 'Route Method')
 
     @staticmethod
     def default_session_lifetime():
@@ -114,6 +119,10 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
     @staticmethod
     def default_session_lifetime_update_frequency():
         return 1800
+
+    @staticmethod
+    def default_route_method():
+        return 'endpoint'
 
     def path_from_view(self, view):
         pool = Pool()
@@ -127,11 +136,57 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
     def get_cache(self, session, request):
         return CacheManager.get(self.id)
 
+    def match_request(self, request):
+        '''
+        Given a request and site, check if the request uses any of the site
+        endpoints and return the endpoint, args, adapter and endpoint_args
+        '''
+        pool = Pool()
+        VoyagerURI = pool.get('www.uri')
+
+        web_map, adapter, endpoint_args, error_handlers = self.get_site_info()
+
+        # Get the component and function to execute
+        print(f'==== REQUEST PATH: {request.path} ====')
+        try:
+            if self.route_method == 'uri':
+                voyager_uri = VoyagerURI.search([
+                    ('site', '=', self.id),
+                    ('uri', '=', request.path)], limit=1)
+                if voyager_uri:
+                    voyager_uri = voyager_uri[0]
+                    endpoint = voyager_uri.endpoint.model
+                    args = {'product': voyager_uri.resource.id}
+                    print(f'ENDPOINT: {endpoint} | ARGS: {args}')
+                    #x.endpoint # args: x.orgin
+                    #print('----- FOUND !!! -----')
+                    #import pdb; pdb.set_trace()
+                else:
+                    endpoint, args = adapter.match(request.path)
+            elif self.route_method == 'endpoint':
+                endpoint, args = adapter.match(request.path)
+        except HTTPException as e:
+            # HTTPException is the mixin used for all the http erros from
+            # werkzeug, in the base class we have always the code, name and
+            # description attributes
+            if e.code in error_handlers:
+                endpoint = error_handlers[e.code]
+                #TODO: we need to decide here what we sent to the exception
+                # defaults functions
+                return redirect(adapter.build(endpoint.__name__, None))
+                #TODO: we cant use the url function because we dont have the
+                # adapter at this point
+                #error_url = endpoint.url()
+            else:
+                raise e
+        return endpoint, args, adapter, endpoint_args
+
     @classmethod
     def dispatch(cls, site_type, site_id, request, user_id=None):
         pool = Pool()
         Session = pool.get('www.session')
         User = pool.get('res.user')
+
         if not user_id:
             user_id = config.get('voyager', 'user')
 
@@ -147,26 +202,9 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 site.type = site_type
                 site.url = request.url_root
                 site.save()
-        web_map, adapter, endpoint_args, error_handlers = site.get_site_info()
 
-        # Get the component and function to execute
-        print(f'Request: {request} | Path: {request.path}')
-        try:
-            endpoint, args = adapter.match(request.path)
-        except HTTPException as e:
-            # HTTPException is the mixin used for all the http erros from
-            # werkzeug, in the base class we have always the code, name and
-            # description attributes
-            if e.code in error_handlers:
-                endpoint = error_handlers[e.code]
-                #TODO: we need to decide here what we sent to the exception
-                # defaults functions
-                return redirect(adapter.build(endpoint.__name__, None))
-                #TODO: we cant use the url function because we dont have the
-                # adapter at this point
-                #error_url = endpoint.url()
-            else:
-                raise e
+        endpoint, args, adapter, endpoint_args = site.match_request(request)
+
         component_model = endpoint.split('/')[0]
         component_function = None
 
@@ -323,6 +361,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 elif Model._method:
                     methods = [Model._method]
 
+                #TODO: add to Model._url the WEB_PREFIX
                 url_map = Rule(Model._url, endpoint = Model.__name__,
                     methods=methods)
 
@@ -345,7 +384,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
 
                 endpoint_args[url_map.endpoint] = args
                 web_map.add(url_map)
-            if issubclass(Model, Component):
+            elif issubclass(Model, Component):
                 for url_map in Model.get_url_map():
                     if not url_map.endpoint:
                         # If we dont have an endpoint, we need to set as endpoint
@@ -739,3 +778,124 @@ class VoyagerURL():
     @classmethod
     def from_request(cls, site, value, component):
         raise NotImplementedError('Method to_request not implemented')
+
+
+class VoyagerURI(ModelSQL, ModelView):
+    'Voyager URI'
+    __name__ = 'www.uri'
+
+    site = fields.Many2One('www.site', 'Site', required=True)
+    uri = fields.Char('URI', required=True)
+    language = fields.Many2One('ir.lang', 'Language')
+    endpoint = fields.Many2One('ir.model', 'Endpoint', required=True)
+    resource = fields.Reference('Resource', selection='get_resources',
+        required=True, readonly=True)
+
+    @classmethod
+    def _get_resources(cls):
+        return []
+
+    @classmethod
+    def get_resources(cls):
+        Model = Pool().get('ir.model')
+        models = Model.search([('model', 'in', cls._get_resources())])
+        return [
+            (model.model, model.name)
+            for model in models
+        ]
+
+    @classmethod
+    def compute_uris(cls, dictionary):
+        #TODO: we need to handle the site
+        old_uris = {
+            (str(uri.resource), uri.uri) : uri
+            for uri in cls.search([('resource', 'in', list(dictionary.keys()))])
+        }
+
+        print('-- COMPUTE URIS --')
+
+        to_save = []
+        to_delete = old_uris.copy()
+        for uris in dictionary.values():
+            for uri in uris:
+                key = (str(uri.resource), uri.uri)
+                if key not in old_uris:
+                    to_save.append(uri)
+                else:
+                    to_delete.pop(key, None)
+
+        cls.save(to_save)
+        cls.delete(to_delete.values())
+
+#TODO: validate unique uri per site and language
+#TODO: how we generate the correct uri to each component linked with a resource?
+
+
+class VoyagerUriBuilderAsk(ModelView):
+    'Voyager URI Builder Ask'
+    __name__ = 'www.uri.builder.ask'
+
+    models = fields.MultiSelection(string="Models", selection="get_models")
+
+    @staticmethod
+    def default_models():
+        pool = Pool()
+        URI = pool.get('www.uri')
+        return URI._get_resources()
+
+    @classmethod
+    def get_models(cls):
+        pool = Pool()
+        URI = pool.get('www.uri')
+
+        return [
+            (model, name)
+            for model, name in URI.get_resources()
+            if getattr(pool.get(model), "generate_uri", False)
+        ]
+
+
+class VoyagerUriBuilderResult(ModelView):
+    'Voyager URI Builder Result'
+    __name__ = 'www.uri.builder.result'
+
+    result = fields.Text('Result', readonly=True)
+
+
+class VoyagerUriBuilder(Wizard):
+    'Voyager URI Builder'
+    __name__ = 'www.uri.builder'
+
+    start_state = 'ask'
+
+    ask = StateView('www.uri.builder.ask',
+        'voyager.uri_builder_ask_form_view', [
+            Button('Cancel', 'end', 'tryton-cancel'),
+            Button('Build URIs', 'build_uris', 'tryton-ok', default=True),
+        ])
+    build_uris = StateTransition()
+    result = StateView('www.uri.builder.result',
+        'voyager.uri_builder_result_form_view', [
+            Button('Close', 'end', 'tryton-ok'),
+        ]
+    )
+
+    def transition_build_uris(self):
+        pool = Pool()
+        URI = pool.get('www.uri')
+        to_save = []
+        for model_name in self.ask.models:
+            Model = pool.get(model_name)
+            if not hasattr(Model, 'generate_uri'):
+                continue
+            for records in grouped_slice(Model.search([])):
+                Model.generate_uri(records)
+
+        self.result.result = 'URIs generated for models: %s' % ', '.join(
+            self.ask.models)
+        return 'result'
+
+    def default_result(self, fields):
+        return {
+            'result': self.result.result or '',
+        }
