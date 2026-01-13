@@ -147,8 +147,8 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         web_map, adapter, endpoint_args, error_handlers = self.get_site_info()
 
         # Get the component and function to execute
-        print(f'==== REQUEST PATH: {request.path} ====')
         try:
+            language = None
             if self.route_method == 'uri':
                 voyager_uri = VoyagerURI.search([
                     ('site', '=', self.id),
@@ -157,10 +157,8 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                     voyager_uri = voyager_uri[0]
                     endpoint = voyager_uri.endpoint.model
                     args = {'product': voyager_uri.resource.id}
-                    print(f'ENDPOINT: {endpoint} | ARGS: {args}')
-                    #x.endpoint # args: x.orgin
-                    #print('----- FOUND !!! -----')
-                    #import pdb; pdb.set_trace()
+                    if voyager_uri.language:
+                        language = voyager_uri.language.code
                 else:
                     endpoint, args = adapter.match(request.path)
             elif self.route_method == 'endpoint':
@@ -173,13 +171,13 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 endpoint = error_handlers[e.code]
                 #TODO: we need to decide here what we sent to the exception
                 # defaults functions
-                return redirect(adapter.build(endpoint.__name__, None))
+                return (None, None, None, None, None,
+                    adapter.build(endpoint.__name__, None))
                 #TODO: we cant use the url function because we dont have the
                 # adapter at this point
-                #error_url = endpoint.url()
             else:
                 raise e
-        return endpoint, args, adapter, endpoint_args
+        return endpoint, args, adapter, endpoint_args, language, None
 
     @classmethod
     def dispatch(cls, site_type, site_id, request, user_id=None):
@@ -203,7 +201,14 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 site.url = request.url_root
                 site.save()
 
-        endpoint, args, adapter, endpoint_args = site.match_request(request)
+        (endpoint, args, adapter, endpoint_args, language,
+            error) = site.match_request(request)
+
+        if not language:
+            language = Transaction().context.get('language')
+
+        if error:
+            return redirect(error)
 
         component_model = endpoint.split('/')[0]
         component_function = None
@@ -222,8 +227,6 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         except:
             raise ValueError('No component found %s' % component_model)
 
-        print(f'==== ENDPOINT: {endpoint} | ARGS: {args} ====')
-        print(f'Transaction {Transaction().context}')
         if request.method == 'POST':
             # In case we have a post method, use the request form as args. This
             # means that we have a componet for each form and the form and
@@ -255,6 +258,8 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
             context = User._get_preferences(user, context_only=True)
             if cache:
                 cache.set('user-preferences-%d' % user_id, context)
+            context['language'] = language
+
         with Transaction().set_context(voyager_context=voyager_context,
                 path=request.path, **context):
             # Get the component object and function
@@ -356,21 +361,30 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 if not Model._url:
                     raise KeyError('Missing url in endpoint %s' % Model.__name__)
 
-                if Model._methods:
-                    methods = Model._methods
-                elif Model._method:
+                if not Model._type:
+                    raise KeyError('Missing type in model %s' % Model.__name__)
+
+                types = Model._type
+                if isinstance(Model._type, str):
+                    types = [Model._type]
+
+                if self.type not in types:
+                    continue
+
+                methods = Model._method
+                if isinstance(Model._method, str):
                     methods = [Model._method]
 
                 #TODO: add to Model._url the WEB_PREFIX
                 url_map = Rule(Model._url, endpoint = Model.__name__,
                     methods=methods)
 
-                #TODO: we can have more than one model per status? Right now we
-                # have only one page for each status (the las one we read)
-                if Model._status:
-                    error_handlers[Model._status] = Model
-                elif Model._statuses:
-                    for status in Model._statuses:
+                status = Model._status
+                if Model._status and isinstance(Model._status, int):
+                    status = [Model._status]
+
+                if status:
+                    for status in status:
                         error_handlers[status] = Model
 
                 args = []
@@ -721,9 +735,8 @@ class Endpoint(Component):
 
     _url = None
     _method = 'GET'
-    _methods = []
     _status = None
-    _statuses = []
+    _type = None
 
     def __init__(self, *args, **kwargs):
         render = True
@@ -811,8 +824,6 @@ class VoyagerURI(ModelSQL, ModelView):
             (str(uri.resource), uri.uri) : uri
             for uri in cls.search([('resource', 'in', list(dictionary.keys()))])
         }
-
-        print('-- COMPUTE URIS --')
 
         to_save = []
         to_delete = old_uris.copy()
