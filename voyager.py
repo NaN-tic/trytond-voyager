@@ -775,6 +775,8 @@ class Endpoint(Component):
                         if Model.search([('id', '=', kwargs[key])]):
                             model = Model(kwargs[key])
                             value = model.to_request(cls.site, cls.__name__)
+                else:
+                    value = kwargs[key]
             values[key] = value
 
         #Minimum required to handle the url building
