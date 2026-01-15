@@ -78,7 +78,7 @@ class CacheManager:
 # default
 class VoyagerContext(dict):
     def __init__(self, site=None, session=None, cache=None, request=None,
-            adapter=None, endpoint_args=None):
+            adapter=None, endpoint_args=None, web_prefix=None):
         super().__init__()
         self.site = site
         self.session = session
@@ -86,6 +86,7 @@ class VoyagerContext(dict):
         self.request = request
         self.adapter = adapter
         self.endpoint_args = endpoint_args
+        self.web_prefix = web_prefix
 
 
 class Site(DeactivableMixin, ModelSQL, ModelView):
@@ -136,7 +137,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
     def get_cache(self, session, request):
         return CacheManager.get(self.id)
 
-    def match_request(self, request):
+    def match_request(self, request, web_prefix=None):
         '''
         Given a request and site, check if the request uses any of the site
         endpoints and return the endpoint, args, adapter and endpoint_args
@@ -144,15 +145,21 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         pool = Pool()
         VoyagerURI = pool.get('www.uri')
 
-        web_map, adapter, endpoint_args, error_handlers = self.get_site_info()
+        web_map, adapter, endpoint_args, error_handlers = self.get_site_info(
+            web_prefix)
 
         # Get the component and function to execute
         try:
             language = None
+            request_path = request.path
+            if web_prefix:
+                request_path = request.path.replace(
+                    web_prefix, '', 1)
+
             if self.route_method == 'uri':
                 voyager_uri = VoyagerURI.search([
                     ('site', '=', self.id),
-                    ('uri', '=', request.path)], limit=1)
+                    ('uri', '=', request_path)], limit=1)
                 if voyager_uri:
                     voyager_uri = voyager_uri[0]
                     endpoint = voyager_uri.endpoint.model
@@ -160,8 +167,11 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                     if voyager_uri.language:
                         language = voyager_uri.language.code
                 else:
-                    endpoint, args = adapter.match(request.path)
+                    endpoint, args = adapter.match(request_path)
             elif self.route_method == 'endpoint':
+                #TODO: in 7.6 replace "request.path" with "request_path", we do
+                # this to mantain compatibility with the actual behaviour of
+                # voyager
                 endpoint, args = adapter.match(request.path)
         except HTTPException as e:
             # HTTPException is the mixin used for all the http erros from
@@ -180,7 +190,8 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         return endpoint, args, adapter, endpoint_args, language, None
 
     @classmethod
-    def dispatch(cls, site_type, site_id, request, user_id=None):
+    def dispatch(cls, site_type, site_id, request, user_id=None,
+            web_prefix=None):
         pool = Pool()
         Session = pool.get('www.session')
         User = pool.get('res.user')
@@ -202,7 +213,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 site.save()
 
         (endpoint, args, adapter, endpoint_args, language,
-            error) = site.match_request(request)
+            error) = site.match_request(request, web_prefix)
 
         if not language:
             language = Transaction().context.get('language')
@@ -246,7 +257,8 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
 
         cache = site.get_cache(session, request)
         voyager_context = VoyagerContext(site=site, session=session,
-            cache=cache, request=request, adapter=adapter, endpoint_args=endpoint_args)
+            cache=cache, request=request, adapter=adapter,
+            endpoint_args=endpoint_args, web_prefix=web_prefix)
         system_user_id = session.system_user and session.system_user.id
         user_id = system_user_id or user_id
         if cache:
@@ -296,7 +308,6 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                     function_variables[arg] = value
                 else:
                     instance_variables[arg] = value
-            print(f'Function variables: {function_variables} \n Instance variables: {instance_variables}')
 
             # TODO: make more efficent the way we get the component, right
             # now, even if we don't use the compoent we "execute" the render
@@ -334,7 +345,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         context = Transaction().context.copy()
         return context
 
-    def get_site_info(self):
+    def get_site_info(self, web_prefix):
         '''
         This function will return the map of the site, with the rules for all
         the components and the arguments of each endpoint. The endpoints always
@@ -375,8 +386,8 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 if isinstance(Model._method, str):
                     methods = [Model._method]
 
-                #TODO: add to Model._url the WEB_PREFIX
-                url_map = Rule(Model._url, endpoint = Model.__name__,
+                url_map = Rule(f'{web_prefix or ""}{Model._url}',
+                    endpoint = Model.__name__,
                     methods=methods)
 
                 status = Model._status
@@ -565,6 +576,11 @@ class Component(ModelView):
             return Transaction().context.get('voyager_context').session
 
     @classmethod
+    def web_prefix(cls):
+        if hasattr(Transaction().context.get('voyager_context'), 'web_prefix'):
+            return Transaction().context.get('voyager_context').web_prefix
+
+    @classmethod
     def adapter(cls):
         if hasattr(Transaction().context.get('voyager_context'), 'adapter'):
             return Transaction().context.get('voyager_context').adapter
@@ -632,20 +648,10 @@ class Component(ModelView):
         raise NotImplementedError('Method render not implemented')
 
     def lazy_content(self):
-        '''
-        The alternative content to show while the component is loading
-        '''
-        return p('Loading...')
+        raise NotImplementedError('Method lazy_content not implemented')
 
     def render_lazy(self):
-        '''
-        The loading div that we show when the component is loading.
-        '''
-        #TODO: calculate the path using "build_url" method
-        loading_div = div(hx_get=self.path, hx_trigger='load')
-        with loading_div:
-            self.lazy_content()
-        return loading_div
+        raise NotImplementedError('Method render_lazy not implemented')
 
     def get_cache_key(self):
         if self._fields:
@@ -755,6 +761,21 @@ class Endpoint(Component):
                 if isinstance(getattr(self, x), Trigger):
                     getattr(self, x).name = f"{self.__name__.replace('.','-')}_{x}"
 
+    def lazy_content(self):
+        '''
+        The alternative content to show while the component is loading
+        '''
+        return p('Loading...')
+
+    def render_lazy(self):
+        '''
+        The loading div that we show when the component is loading.
+        '''
+        loading_div = div(hx_get=self.url(), hx_trigger='load')
+        with loading_div:
+            self.lazy_content()
+        return loading_div
+
     @dualmethod
     def url(cls, **kwargs):
         pool = Pool()
@@ -781,8 +802,8 @@ class Endpoint(Component):
 
         #Minimum required to handle the url building
         adapter = cls.adapter()
-        #import pdb; pdb.set_trace()
-        return adapter.build(cls.__name__, values)
+        builder = adapter.build(cls.__name__, values)
+        return f'{builder}'
 
 
 class VoyagerURL():
@@ -821,7 +842,6 @@ class VoyagerURI(ModelSQL, ModelView):
 
     @classmethod
     def compute_uris(cls, dictionary):
-        #TODO: we need to handle the site
         old_uris = {
             (str(uri.resource), uri.uri) : uri
             for uri in cls.search([('resource', 'in', list(dictionary.keys()))])
