@@ -369,9 +369,6 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
             # with the _url. We need to deprecate the Component system and use
             # only the Endpoint system.
             if issubclass(Model, Endpoint):
-                if not Model._url:
-                    raise KeyError('Missing url in endpoint %s' % Model.__name__)
-
                 if not Model._type:
                     raise KeyError('Missing type in model %s' % Model.__name__)
 
