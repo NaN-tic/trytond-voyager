@@ -74,7 +74,7 @@
         </record>
 
         <record model="ir.action.act_window" id="uri_action">
-            <field name="name">Uris</field>
+            <field name="name">URIs</field>
             <field name="res_model">www.uri</field>
         </record>
         <record model="ir.action.act_window.view" id="uri_action_tree">
