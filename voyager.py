@@ -8,11 +8,16 @@ import markdown
 from dominate.tags import div, p
 from trytond.cache import Cache, freeze
 from trytond.config import config
-from trytond.model import DeactivableMixin, ModelSQL, ModelView, fields
+from trytond.model import (DeactivableMixin, ModelSQL, ModelView, fields,
+    dualmethod)
 from trytond.pool import Pool
+from trytond.wizard import Button, StateTransition, StateView, Wizard
 from trytond.transaction import Transaction
-from werkzeug.routing import Map
+from trytond.tools import grouped_slice
+from werkzeug.routing import Map, Rule
 from werkzeug.wrappers import Response
+from werkzeug.exceptions import HTTPException
+from werkzeug.utils import redirect
 
 CACHE_ENABLED = config.getboolean('voyager', 'cache_enabled', default=True)
 CACHE_TIMEOUT = config.getint('voyager', 'cache_timeout', default=60 * 60)
@@ -73,7 +78,7 @@ class CacheManager:
 # default
 class VoyagerContext(dict):
     def __init__(self, site=None, session=None, cache=None, request=None,
-            adapter=None, endpoint_args=None):
+            adapter=None, endpoint_args=None, web_prefix=None):
         super().__init__()
         self.site = site
         self.session = session
@@ -81,6 +86,7 @@ class VoyagerContext(dict):
         self.request = request
         self.adapter = adapter
         self.endpoint_args = endpoint_args
+        self.web_prefix = web_prefix
 
 
 class Site(DeactivableMixin, ModelSQL, ModelView):
@@ -103,6 +109,9 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
     canonical = fields.Char('Canonical')
     author = fields.Char('Author')
     title = fields.Char('Title')
+    route_method = fields.Selection([
+        ('endpoint', 'Endpoint'),
+        ('uri', 'URI')], 'Route Method')
 
     @staticmethod
     def default_session_lifetime():
@@ -111,6 +120,10 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
     @staticmethod
     def default_session_lifetime_update_frequency():
         return 1800
+
+    @staticmethod
+    def default_route_method():
+        return 'endpoint'
 
     def path_from_view(self, view):
         pool = Pool()
@@ -124,11 +137,65 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
     def get_cache(self, session, request):
         return CacheManager.get(self.id)
 
+    def match_request(self, request, web_prefix=None):
+        '''
+        Given a request and site, check if the request uses any of the site
+        endpoints and return the endpoint, args, adapter and endpoint_args
+        '''
+        pool = Pool()
+        VoyagerURI = pool.get('www.uri')
+
+        web_map, adapter, endpoint_args, error_handlers = self.get_site_info(
+            web_prefix)
+
+        # Get the component and function to execute
+        try:
+            language = None
+            request_path = request.path
+            if web_prefix:
+                request_path = request.path.replace(
+                    web_prefix, '', 1)
+
+            if self.route_method == 'uri':
+                voyager_uri = VoyagerURI.search([
+                    ('site', '=', self.id),
+                    ('uri', '=', request_path)], limit=1)
+                if voyager_uri:
+                    voyager_uri = voyager_uri[0]
+                    endpoint = voyager_uri.endpoint.model
+                    args = {'product': voyager_uri.resource.id}
+                    if voyager_uri.language:
+                        language = voyager_uri.language.code
+                else:
+                    endpoint, args = adapter.match(request_path)
+            elif self.route_method == 'endpoint':
+                #TODO: in 7.6 replace "request.path" with "request_path", we do
+                # this to mantain compatibility with the actual behaviour of
+                # voyager
+                endpoint, args = adapter.match(request.path)
+        except HTTPException as e:
+            # HTTPException is the mixin used for all the http erros from
+            # werkzeug, in the base class we have always the code, name and
+            # description attributes
+            if e.code in error_handlers:
+                endpoint = error_handlers[e.code]
+                #TODO: we need to decide here what we sent to the exception
+                # defaults functions
+                return (None, None, None, None, None,
+                    adapter.build(endpoint.__name__, None))
+                #TODO: we cant use the url function because we dont have the
+                # adapter at this point
+            else:
+                raise e
+        return endpoint, args, adapter, endpoint_args, language, None
+
     @classmethod
-    def dispatch(cls, site_type, site_id, request, user_id=None):
+    def dispatch(cls, site_type, site_id, request, user_id=None,
+            web_prefix=None):
         pool = Pool()
         Session = pool.get('www.session')
         User = pool.get('res.user')
+
         if not user_id:
             user_id = config.get('voyager', 'user')
 
@@ -144,11 +211,16 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 site.type = site_type
                 site.url = request.url_root
                 site.save()
-        web_map, adapter, endpoint_args = site.get_site_info()
 
-        # Get the component and function to execute
-        print(f'Request: {request} | Path: {request.path}')
-        endpoint, args = adapter.match(request.path)
+        (endpoint, args, adapter, endpoint_args, language,
+            error) = site.match_request(request, web_prefix)
+
+        if not language:
+            language = Transaction().context.get('language')
+
+        if error:
+            return redirect(error)
+
         component_model = endpoint.split('/')[0]
         component_function = None
 
@@ -166,8 +238,6 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         except:
             raise ValueError('No component found %s' % component_model)
 
-        print(f'==== ENDPOINT: {endpoint} | ARGS: {args} ====')
-        print(f'Transaction {Transaction().context}')
         if request.method == 'POST':
             # In case we have a post method, use the request form as args. This
             # means that we have a componet for each form and the form and
@@ -187,7 +257,8 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
 
         cache = site.get_cache(session, request)
         voyager_context = VoyagerContext(site=site, session=session,
-            cache=cache, request=request, adapter=adapter, endpoint_args=endpoint_args)
+            cache=cache, request=request, adapter=adapter,
+            endpoint_args=endpoint_args, web_prefix=web_prefix)
         system_user_id = session.system_user and session.system_user.id
         user_id = system_user_id or user_id
         if cache:
@@ -199,6 +270,8 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
             context = User._get_preferences(user, context_only=True)
             if cache:
                 cache.set('user-preferences-%d' % user_id, context)
+            context['language'] = language
+
         with Transaction().set_context(voyager_context=voyager_context,
                 path=request.path, **context):
             # Get the component object and function
@@ -235,7 +308,6 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                     function_variables[arg] = value
                 else:
                     instance_variables[arg] = value
-            print(f'Function variables: {function_variables} \n Instance variables: {instance_variables}')
 
             # TODO: make more efficent the way we get the component, right
             # now, even if we don't use the compoent we "execute" the render
@@ -273,7 +345,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         context = Transaction().context.copy()
         return context
 
-    def get_site_info(self):
+    def get_site_info(self, web_prefix):
         '''
         This function will return the map of the site, with the rules for all
         the components and the arguments of each endpoint. The endpoints always
@@ -289,8 +361,52 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
 
         web_map = Map()
         endpoint_args = {}
+        error_handlers = {}
         for key, Model in pool.iterobject():
-            if issubclass(Model, Component):
+            # TODO: Using this if /elif structure we can make compatible both
+            # systems, the actual system using Components and get_url_map
+            # function to get the url_map and the new system using Endpoints
+            # with the _url. We need to deprecate the Component system and use
+            # only the Endpoint system.
+            if issubclass(Model, Endpoint):
+                if not Model._type:
+                    raise KeyError('Missing type in model %s' % Model.__name__)
+
+                types = Model._type
+                if isinstance(Model._type, str):
+                    types = [Model._type]
+
+                if self.type not in types:
+                    continue
+
+                methods = Model._method
+                if isinstance(Model._method, str):
+                    methods = [Model._method]
+
+                url_map = Rule(f'{web_prefix or ""}{Model._url}',
+                    endpoint = Model.__name__,
+                    methods=methods)
+
+                status = Model._status
+                if Model._status and isinstance(Model._status, int):
+                    status = [Model._status]
+
+                if status:
+                    for status in status:
+                        error_handlers[status] = Model
+
+                args = []
+                for segment in str(url_map).split('/'):
+                    if segment.startswith('<') and segment.endswith('>'):
+                        arg = segment.split(':')[-1].replace('>','')
+                        args.append(arg)
+                if (url_map.endpoint in endpoint_args and
+                        endpoint_args[url_map.endpoint] != args):
+                    raise KeyError('Incorrect args in endpoint %s' % url_map.endpoint)
+
+                endpoint_args[url_map.endpoint] = args
+                web_map.add(url_map)
+            elif issubclass(Model, Component):
                 for url_map in Model.get_url_map():
                     if not url_map.endpoint:
                         # If we dont have an endpoint, we need to set as endpoint
@@ -318,7 +434,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                     web_map.add(url_map)
 
         adapter = web_map.bind(self.url, '/')
-        return web_map, adapter, endpoint_args
+        return web_map, adapter, endpoint_args, error_handlers
 
     def template_filters(self):
         return {
@@ -457,6 +573,11 @@ class Component(ModelView):
             return Transaction().context.get('voyager_context').session
 
     @classmethod
+    def web_prefix(cls):
+        if hasattr(Transaction().context.get('voyager_context'), 'web_prefix'):
+            return Transaction().context.get('voyager_context').web_prefix
+
+    @classmethod
     def adapter(cls):
         if hasattr(Transaction().context.get('voyager_context'), 'adapter'):
             return Transaction().context.get('voyager_context').adapter
@@ -524,20 +645,10 @@ class Component(ModelView):
         raise NotImplementedError('Method render not implemented')
 
     def lazy_content(self):
-        '''
-        The alternative content to show while the component is loading
-        '''
-        return p('Loading...')
+        raise NotImplementedError('Method lazy_content not implemented')
 
     def render_lazy(self):
-        '''
-        The loading div that we show when the component is loading.
-        '''
-        #TODO: calculate the path using "build_url" method
-        loading_div = div(hx_get=self.path, hx_trigger='load')
-        with loading_div:
-            self.lazy_content()
-        return loading_div
+        raise NotImplementedError('Method render_lazy not implemented')
 
     def get_cache_key(self):
         if self._fields:
@@ -622,6 +733,76 @@ class Trigger():
         return Transaction().context.get('triggers', set([]))
 
 
+class Endpoint(Component):
+    'Endpoint'
+
+    _url = None
+    _method = 'GET'
+    _status = None
+    _type = None
+
+    def __init__(self, *args, **kwargs):
+        render = True
+        if 'render' in kwargs:
+            render = kwargs['render']
+            kwargs.pop('render')
+        self.cached = self._cached
+        if 'cached' in kwargs:
+            self.cached = self.cached and kwargs['cached']
+            kwargs.pop('cached')
+        super().__init__(*args, **kwargs)
+        for x in dir(self):
+            # TODO: This function is "hardcoded" by now, we need to search a
+            # method to get only the triggers from the class
+            if x == 'updated':
+                if isinstance(getattr(self, x), Trigger):
+                    getattr(self, x).name = f"{self.__name__.replace('.','-')}_{x}"
+
+    def lazy_content(self):
+        '''
+        The alternative content to show while the component is loading
+        '''
+        return p('Loading...')
+
+    def render_lazy(self):
+        '''
+        The loading div that we show when the component is loading.
+        '''
+        loading_div = div(hx_get=self.url(), hx_trigger='load')
+        with loading_div:
+            self.lazy_content()
+        return loading_div
+
+    @dualmethod
+    def url(cls, **kwargs):
+        pool = Pool()
+
+        values = {}
+        for key in kwargs.keys():
+            if not hasattr(cls, key):
+                # Key not found
+                value = kwargs[key]
+            else:
+                # Key found, check if it is a model
+                field = getattr(cls, key)
+                if hasattr(field, 'model_name'):
+                    value = kwargs[key]
+
+                    Model = pool.get(field.model_name)
+                    if hasattr(Model, 'to_request'):
+                        if Model.search([('id', '=', kwargs[key])]):
+                            model = Model(kwargs[key])
+                            value = model.to_request(cls.site, cls.__name__)
+                else:
+                    value = kwargs[key]
+            values[key] = value
+
+        #Minimum required to handle the url building
+        adapter = cls.adapter()
+        builder = adapter.build(cls.__name__, values)
+        return f'{builder}'
+
+
 class VoyagerURL():
 
     def to_request(self, site, component):
@@ -630,3 +811,121 @@ class VoyagerURL():
     @classmethod
     def from_request(cls, site, value, component):
         raise NotImplementedError('Method to_request not implemented')
+
+
+class VoyagerURI(ModelSQL, ModelView):
+    'Voyager URI'
+    __name__ = 'www.uri'
+
+    site = fields.Many2One('www.site', 'Site', required=True)
+    uri = fields.Char('URI', required=True)
+    language = fields.Many2One('ir.lang', 'Language')
+    endpoint = fields.Many2One('ir.model', 'Endpoint', required=True)
+    resource = fields.Reference('Resource', selection='get_resources',
+        required=True, readonly=True)
+
+    @classmethod
+    def _get_resources(cls):
+        return []
+
+    @classmethod
+    def get_resources(cls):
+        Model = Pool().get('ir.model')
+        models = Model.search([('name', 'in', cls._get_resources())])
+        return [
+            (model.model, model.name)
+            for model in models
+        ]
+
+    @classmethod
+    def compute_uris(cls, dictionary):
+        old_uris = {
+            (str(uri.resource), uri.uri) : uri
+            for uri in cls.search([('resource', 'in', list(dictionary.keys()))])
+        }
+
+        to_save = []
+        to_delete = old_uris.copy()
+        for uris in dictionary.values():
+            for uri in uris:
+                key = (str(uri.resource), uri.uri)
+                if key not in old_uris:
+                    to_save.append(uri)
+                else:
+                    to_delete.pop(key, None)
+
+        cls.save(to_save)
+        cls.delete(to_delete.values())
+
+#TODO: validate unique uri per site and language
+#TODO: how we generate the correct uri to each component linked with a resource?
+
+
+class VoyagerUriBuilderAsk(ModelView):
+    'Voyager URI Builder Ask'
+    __name__ = 'www.uri.builder.ask'
+
+    models = fields.MultiSelection(string="Models", selection="get_models")
+
+    @staticmethod
+    def default_models():
+        pool = Pool()
+        URI = pool.get('www.uri')
+        return URI._get_resources()
+
+    @classmethod
+    def get_models(cls):
+        pool = Pool()
+        URI = pool.get('www.uri')
+
+        return [
+            (model, name)
+            for model, name in URI.get_resources()
+            if getattr(pool.get(model), "generate_uri", False)
+        ]
+
+
+class VoyagerUriBuilderResult(ModelView):
+    'Voyager URI Builder Result'
+    __name__ = 'www.uri.builder.result'
+
+    result = fields.Text('Result', readonly=True)
+
+
+class VoyagerUriBuilder(Wizard):
+    'Voyager URI Builder'
+    __name__ = 'www.uri.builder'
+
+    start_state = 'ask'
+
+    ask = StateView('www.uri.builder.ask',
+        'voyager.uri_builder_ask_form_view', [
+            Button('Cancel', 'end', 'tryton-cancel'),
+            Button('Build URIs', 'build_uris', 'tryton-ok', default=True),
+        ])
+    build_uris = StateTransition()
+    result = StateView('www.uri.builder.result',
+        'voyager.uri_builder_result_form_view', [
+            Button('Close', 'end', 'tryton-ok'),
+        ]
+    )
+
+    def transition_build_uris(self):
+        pool = Pool()
+        URI = pool.get('www.uri')
+        to_save = []
+        for model_name in self.ask.models:
+            Model = pool.get(model_name)
+            if not hasattr(Model, 'generate_uri'):
+                continue
+            for records in grouped_slice(Model.search([])):
+                Model.generate_uri(records)
+
+        self.result.result = 'URIs generated for models: %s' % ', '.join(
+            self.ask.models)
+        return 'result'
+
+    def default_result(self, fields):
+        return {
+            'result': self.result.result or '',
+        }
