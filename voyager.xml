@@ -45,6 +45,18 @@
 
         <menuitem action="site_action" id="menu_site" parent="ir.menu_administration" sequence="200"/>
 
+        <!-- www.uri -->
+        <record model="ir.ui.view" id="uri_form">
+            <field name="model">www.uri</field>
+            <field name="type">form</field>
+            <field name="name">uri_form</field>
+        </record>
+        <record model="ir.ui.view" id="uri_tree">
+            <field name="model">www.uri</field>
+            <field name="type">tree</field>
+            <field name="name">uri_tree</field>
+        </record>
+
         <record model="ir.action.act_window" id="act_uri_form_relate">
             <field name="name">URIs</field>
             <field name="res_model">www.uri</field>
@@ -68,17 +80,6 @@
             <field name="action" ref="act_uri_form_relate"/>
         </record>
 
-        <!-- www.uri -->
-        <record model="ir.ui.view" id="uri_form">
-            <field name="model">www.uri</field>
-            <field name="type">form</field>
-            <field name="name">uri_form</field>
-        </record>
-        <record model="ir.ui.view" id="uri_tree">
-            <field name="model">www.uri</field>
-            <field name="type">tree</field>
-            <field name="name">uri_tree</field>
-        </record>
 
         <record model="ir.model.access" id="uri_access">
             <field name="model">www.uri</field>
