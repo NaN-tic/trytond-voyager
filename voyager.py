@@ -831,7 +831,7 @@ class VoyagerURI(ModelSQL, ModelView):
     @classmethod
     def get_resources(cls):
         Model = Pool().get('ir.model')
-        models = Model.search([('model', 'in', cls._get_resources())])
+        models = Model.search([('name', 'in', cls._get_resources())])
         return [
             (model.model, model.name)
             for model in models

@@ -45,6 +45,29 @@
 
         <menuitem action="site_action" id="menu_site" parent="ir.menu_administration" sequence="200"/>
 
+        <record model="ir.action.act_window" id="act_uri_form_relate">
+            <field name="name">URIs</field>
+            <field name="res_model">www.uri</field>
+            <field name="domain"
+                eval="[If(Eval('active_ids', []) == [Eval('active_id')], ('site', '=', Eval('active_id')), ('site', 'in', Eval('active_ids')))]"
+                pyson="1"/>
+        </record>
+        <record model="ir.action.act_window.view" id="act_uri_form_relate_view1">
+            <field name="sequence" eval="10"/>
+            <field name="view" ref="uri_tree"/>
+            <field name="act_window" ref="act_uri_form_relate"/>
+        </record>
+        <record model="ir.action.act_window.view" id="act_uri_form_relate_view2">
+            <field name="sequence" eval="20"/>
+            <field name="view" ref="uri_form"/>
+            <field name="act_window" ref="act_uri_form_relate"/>
+        </record>
+        <record model="ir.action.keyword" id="act_uri_form_relate_keyword1">
+            <field name="keyword">form_relate</field>
+            <field name="model">www.site,-1</field>
+            <field name="action" ref="act_uri_form_relate"/>
+        </record>
+
         <!-- www.uri -->
         <record model="ir.ui.view" id="uri_form">
             <field name="model">www.uri</field>
