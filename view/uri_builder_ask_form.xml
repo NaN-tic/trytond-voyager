@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<!-- This file is part of dbcopy module for Tryton.
+The COPYRIGHT file at the top level of this repository contains the full
+copyright notices and license terms. -->
+<form>
+    <label string="Select models to generate uris: " id="clone" colspan="4" yfill="1" xfill="1" xalign="0" />
+    <newline/>
+    <field name="models"/>
+</form>
