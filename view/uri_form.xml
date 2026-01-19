@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<!-- This file is part of Tryton.  The COPYRIGHT file at the top level of
+this repository contains the full copyright notices and license terms. -->
+<form>
+    <label name="resource"/>
+    <field name="resource"/>
+    <label name="language"/>
+    <field name="language"/>
+    <label name="endpoint"/>
+    <field name="endpoint"/>
+    <label name="site"/>
+    <field name="site"/>
+    <label name="uri"/>
+    <field name="uri" colspan="3"/>
+</form>

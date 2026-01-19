@@ -14,9 +14,13 @@ def register():
         voyager.Site,
         voyager.Session,
         voyager.Component,
+        voyager.VoyagerURI,
+        voyager.VoyagerUriBuilderAsk,
+        voyager.VoyagerUriBuilderResult,
         i18n.Translation,
         module='voyager', type_='model')
     Pool.register(
+        voyager.VoyagerUriBuilder,
         i18n.TranslationSet,
         i18n.TranslationClean,
         i18n.TranslationUpdate,
