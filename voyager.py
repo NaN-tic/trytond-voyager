@@ -167,11 +167,8 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                     if voyager_uri.language:
                         language = voyager_uri.language.code
                 else:
-                    endpoint, args = adapter.match(request_path)
+                    endpoint, args = adapter.match(request.path)
             elif self.route_method == 'endpoint':
-                #TODO: in 7.6 replace "request.path" with "request_path", we do
-                # this to mantain compatibility with the actual behaviour of
-                # voyager
                 endpoint, args = adapter.match(request.path)
         except HTTPException as e:
             # HTTPException is the mixin used for all the http erros from
@@ -183,7 +180,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 # defaults functions
                 return (None, None, None, None, None,
                     adapter.build(endpoint.__name__, None))
-                #TODO: we cant use the url function because we dont have the
+                # We cant use the url function because we dont have the
                 # adapter at this point
             else:
                 raise e
@@ -363,11 +360,6 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         endpoint_args = {}
         error_handlers = {}
         for key, Model in pool.iterobject():
-            # TODO: Using this if /elif structure we can make compatible both
-            # systems, the actual system using Components and get_url_map
-            # function to get the url_map and the new system using Endpoints
-            # with the _url. We need to deprecate the Component system and use
-            # only the Endpoint system.
             if issubclass(Model, Endpoint):
                 if not Model._type:
                     raise KeyError('Missing type in model %s' % Model.__name__)
@@ -406,33 +398,6 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
 
                 endpoint_args[url_map.endpoint] = args
                 web_map.add(url_map)
-            elif issubclass(Model, Component):
-                for url_map in Model.get_url_map():
-                    if not url_map.endpoint:
-                        # If we dont have an endpoint, we need to set as endpoint
-                        # the model name
-                        # TODO: Do we really want a default endpoint?
-                        url_map.endpoint = Model.__name__
-                    else:
-                        # If we have an endpoint, it means we want to execute a
-                        # function, we need to set the format:
-                        # model_name/function
-                        url_map.endpoint = f'{Model.__name__}/{url_map.endpoint}'
-
-                    # Get the "attributes" of the url
-                    args = []
-                    for segment in str(url_map).split('/'):
-                        if segment.startswith('<') and segment.endswith('>'):
-                            arg = segment.split(':')[-1].replace('>','')
-                            args.append(arg)
-                    if (url_map.endpoint in endpoint_args and
-                            endpoint_args[url_map.endpoint] != args):
-                        raise KeyError('Incorrect args in endpoint %s' % url_map.endpoint)
-
-                    endpoint_args[url_map.endpoint] = args
-                    # In booth cases we add the url_map to the web_map variable
-                    web_map.add(url_map)
-
         adapter = web_map.bind(self.url, '/')
         return web_map, adapter, endpoint_args, error_handlers
 
@@ -681,38 +646,6 @@ class Component(ModelView):
             self.create_tag()
         return self._tag
 
-    @classmethod
-    def get_url_map(cls):
-        """
-        Return a list with all the new rules this component add to the site.
-        This function needs to be modified in every component
-        """
-        return []
-
-    def url(self, endpoint=None, **kwargs):
-        """
-        Given an endpoint and a set of arguments, render and return an url.
-        """
-        adapter = self.adapter()
-        endpoint_args = self.endpoint_args()
-
-        #TODO: set context here to set language in url
-        if not endpoint:
-            endpoint = self.__class__.__name__
-        else:
-            endpoint = f'{self.__class__.__name__}/{endpoint}'
-
-        # Always expect the elment here
-        # TODO: we need to accept a same endpoint with multiples rules with differents args
-        for arg in endpoint_args[endpoint]:
-            value = getattr(self, arg)
-            if hasattr(value, '__name__'):
-                if hasattr(value, 'to_request'):
-                    value = value.to_request(self.site, self.__name__)
-                else:
-                    value = value.id
-            kwargs[arg] = value
-        return adapter.build(endpoint, kwargs)
 
 
 class Trigger():
@@ -890,7 +823,6 @@ class VoyagerURI(ModelSQL, ModelView):
         cls.delete(to_delete.values())
 
 #TODO: validate unique uri per site and language
-#TODO: how we generate the correct uri to each component linked with a resource?
 
 
 class VoyagerUriBuilderAsk(ModelView):
