@@ -167,9 +167,17 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                     if voyager_uri.language:
                         language = voyager_uri.language.code
                 else:
-                    endpoint, args = adapter.match(request.path)
+                    if request.method:
+                        endpoint, args = adapter.match(request.path,
+                            request.method)
+                    else:
+                        endpoint, args = adapter.match(request.path)
             elif self.route_method == 'endpoint':
-                endpoint, args = adapter.match(request.path)
+                if request.method:
+                    endpoint, args = adapter.match(request.path,
+                        request.method)
+                else:
+                    endpoint, args = adapter.match(request.path)
         except HTTPException as e:
             # HTTPException is the mixin used for all the http erros from
             # werkzeug, in the base class we have always the code, name and
