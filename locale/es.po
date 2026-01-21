@@ -1,0 +1,287 @@
+#
+msgid ""
+msgstr "Content-Type: text/plain; charset=utf-8\n"
+
+msgctxt "field:sale.sale,session:"
+msgid "Session"
+msgstr "Sesión"
+
+msgctxt "field:www.menu,menus:"
+msgid "Menus"
+msgstr "Menús"
+
+msgctxt "field:www.menu,name:"
+msgid "Name"
+msgstr "Nombre"
+
+msgctxt "field:www.menu,parent:"
+msgid "Parent"
+msgstr "Padre"
+
+msgctxt "field:www.menu,sequence:"
+msgid "Sequence"
+msgstr "Secuencia"
+
+msgctxt "field:www.menu,site:"
+msgid "Site"
+msgstr "Sitio"
+
+msgctxt "field:www.menu,type:"
+msgid "Type"
+msgstr "Tipo"
+
+msgctxt "field:www.menu,uri:"
+msgid "URI"
+msgstr "URI"
+
+msgctxt "field:www.menu,url:"
+msgid "URL"
+msgstr "URL"
+
+msgctxt "field:www.session,expiration_date:"
+msgid "Expiration Date"
+msgstr "Fecha de expiración"
+
+msgctxt "field:www.session,session_id:"
+msgid "Session ID"
+msgstr "ID de sesión"
+
+msgctxt "field:www.session,site:"
+msgid "Site"
+msgstr "Sitio"
+
+msgctxt "field:www.session,system_user:"
+msgid "System User"
+msgstr "Usuario del sistema"
+
+msgctxt "field:www.session,user:"
+msgid "User"
+msgstr "Usuario"
+
+msgctxt "field:www.site,author:"
+msgid "Author"
+msgstr "Autor"
+
+msgctxt "field:www.site,canonical:"
+msgid "Canonical"
+msgstr "Canónico"
+
+msgctxt "field:www.site,keywords:"
+msgid "Keywords"
+msgstr "Palabras clave"
+
+msgctxt "field:www.site,metadescription:"
+msgid "Metadescription"
+msgstr "Metadescripción"
+
+msgctxt "field:www.site,metatitle:"
+msgid "Metatitle"
+msgstr "Metatítulo"
+
+msgctxt "field:www.site,name:"
+msgid "Name"
+msgstr "Nombre"
+
+msgctxt "field:www.site,route_method:"
+msgid "Route Method"
+msgstr "Método de ruta"
+
+msgctxt "field:www.site,session_lifetime:"
+msgid "Session Lifetime"
+msgstr "Duración de la sesión"
+
+msgctxt "field:www.site,session_lifetime_update_frequency:"
+msgid "Session Lifetime Update Frecuency"
+msgstr "Frecuencia de actualización de la duración de la sesión"
+
+msgctxt "field:www.site,title:"
+msgid "Title"
+msgstr "Título"
+
+msgctxt "field:www.site,type:"
+msgid "Type"
+msgstr "Tipo"
+
+msgctxt "field:www.site,url:"
+msgid "URL"
+msgstr "URL"
+
+msgctxt "field:www.site,web_shop:"
+msgid "Web Shop"
+msgstr "Tienda web"
+
+msgctxt "field:www.uri,canonical_uri:"
+msgid "Canonical URI"
+msgstr "URI canónica"
+
+msgctxt "field:www.uri,endpoint:"
+msgid "Endpoint"
+msgstr "Endpoint"
+
+msgctxt "field:www.uri,language:"
+msgid "Language"
+msgstr "Idioma"
+
+msgctxt "field:www.uri,main_uri:"
+msgid "Main URI"
+msgstr "URI principal"
+
+msgctxt "field:www.uri,related_uris:"
+msgid "Related URIs"
+msgstr "URI relacionadas"
+
+msgctxt "field:www.uri,resource:"
+msgid "Resource"
+msgstr "Recurso"
+
+msgctxt "field:www.uri,site:"
+msgid "Site"
+msgstr "Sitio"
+
+msgctxt "field:www.uri,uri:"
+msgid "URI"
+msgstr "URI"
+
+msgctxt "field:www.uri.builder.ask,models:"
+msgid "Models"
+msgstr "Modelos"
+
+msgctxt "field:www.uri.builder.result,result:"
+msgid "Result"
+msgstr "Resultado"
+
+msgctxt "help:www.site,keywords:"
+msgid "Comma-separated list of keywords"
+msgstr "Lista de palabras clave separadas por comas"
+
+msgctxt "help:www.site,session_lifetime:"
+msgid "The session lifetme in secons"
+msgstr "La duración de la sesión en segundos"
+
+msgctxt "help:www.site,session_lifetime_update_frequency:"
+msgid "The frequency to update the session lifetime in seconds"
+msgstr "La frecuencia para actualizar la duración de la sesión en segundos"
+
+msgctxt "model:Component,name:"
+msgid "Component"
+msgstr "Componente"
+
+msgctxt "model:ir.action,name:act_menu_form_relate"
+msgid "Menus"
+msgstr "Menús"
+
+msgctxt "model:ir.action,name:act_uri_builder"
+msgid "Build URIs"
+msgstr "Crear URIs"
+
+msgctxt "model:ir.action,name:act_uri_form_relate"
+msgid "URIs"
+msgstr "URIs"
+
+msgctxt "model:ir.action,name:menu_action"
+msgid "Menu Tree"
+msgstr "Árbol de menú"
+
+msgctxt "model:ir.action,name:menu_action_simple"
+msgid "Menus"
+msgstr "Menús"
+
+msgctxt "model:ir.action,name:site_action"
+msgid "Sites"
+msgstr "Sitios"
+
+msgctxt "model:ir.action,name:uri_action"
+msgid "URIs"
+msgstr "URIs"
+
+msgctxt "model:ir.ui.menu,name:menu_menu"
+msgid "Menu Tree"
+msgstr "Árbol de menú"
+
+msgctxt "model:ir.ui.menu,name:menu_menu_simple"
+msgid "Menus"
+msgstr "Menús"
+
+msgctxt "model:ir.ui.menu,name:menu_site"
+msgid "Sites"
+msgstr "Sitios"
+
+msgctxt "model:ir.ui.menu,name:menu_uri"
+msgid "URIs"
+msgstr "URIs"
+
+msgctxt "model:ir.ui.menu,name:menu_uri_builder"
+msgid "Build URIs"
+msgstr "Crear URIs"
+
+msgctxt "model:www.menu,name:"
+msgid "WWW Menu"
+msgstr "Menú WWW"
+
+msgctxt "model:www.session,name:"
+msgid "Session"
+msgstr "Sesión"
+
+msgctxt "model:www.site,name:"
+msgid "WWW Site"
+msgstr "Sitio WWW"
+
+msgctxt "model:www.uri,name:"
+msgid "Voyager URI"
+msgstr "URI del Voyager"
+
+msgctxt "model:www.uri.builder.ask,name:"
+msgid "Voyager URI Builder Ask"
+msgstr "Pregunta del constructor de URI de Voyager"
+
+msgctxt "model:www.uri.builder.result,name:"
+msgid "Voyager URI Builder Result"
+msgstr "Resultado del generador de URI de Voyager"
+
+msgctxt "selection:ir.translation,type:"
+msgid "Voyager"
+msgstr "Voyager"
+
+msgctxt "selection:www.menu,type:"
+msgid "External"
+msgstr "Externo"
+
+msgctxt "selection:www.menu,type:"
+msgid "Internal"
+msgstr "Interno"
+
+msgctxt "selection:www.site,route_method:"
+msgid "Endpoint"
+msgstr "Endpoint"
+
+msgctxt "selection:www.site,route_method:"
+msgid "URI"
+msgstr "URI"
+
+msgctxt "view:www.site:"
+msgid "Metadescription"
+msgstr "Metadescripción"
+
+msgctxt "view:www.site:"
+msgid "Sale configuration"
+msgstr "Configuración de venta"
+
+msgctxt "view:www.site:"
+msgid "Session"
+msgstr "Sesión"
+
+msgctxt "view:www.uri.builder.ask:"
+msgid "Select models to generate uris: "
+msgstr "Seleccionar modelos para generar URIs: "
+
+msgctxt "wizard_button:www.uri.builder,ask,build_uris:"
+msgid "Build URIs"
+msgstr "Crear URIs"
+
+msgctxt "wizard_button:www.uri.builder,ask,end:"
+msgid "Cancel"
+msgstr "Cancelar"
+
+msgctxt "wizard_button:www.uri.builder,result,end:"
+msgid "Close"
+msgstr "Cerrar"

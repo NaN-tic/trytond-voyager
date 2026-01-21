@@ -5,6 +5,7 @@ from trytond.pool import Pool
 from . import voyager
 from . import i18n
 from . import sale
+from . import utils
 from .tools import slugify
 
 __all__ = ['register', 'slugify']
@@ -15,6 +16,7 @@ def register():
         voyager.Session,
         voyager.Component,
         voyager.VoyagerURI,
+        utils.Menu,
         voyager.VoyagerUriBuilderAsk,
         voyager.VoyagerUriBuilderResult,
         i18n.Translation,

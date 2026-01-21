@@ -12,4 +12,9 @@ this repository contains the full copyright notices and license terms. -->
     <field name="site"/>
     <label name="uri"/>
     <field name="uri" colspan="3"/>
+    <label name="main_uri"/>
+    <field name="main_uri" colspan="3"/>
+    <label name="canonical_uri"/>
+    <field name="canonical_uri" colspan="3"/>
+    <field name="related_uris" colspan="4"/>
 </form>

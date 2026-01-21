@@ -1,0 +1,71 @@
+<tryton>
+    <data>
+        <!-- www.menu -->
+        <record model="ir.ui.view" id="menu_form">
+            <field name="model">www.menu</field>
+            <field name="type">form</field>
+            <field name="name">menu_form</field>
+        </record>
+        <record model="ir.ui.view" id="menu_tree">
+            <field name="model">www.menu</field>
+            <field name="type">tree</field>
+            <field name="field_childs">menus</field>
+            <field name="name">menu_tree</field>
+        </record>
+
+        <record model="ir.action.act_window" id="menu_action">
+            <field name="name">Menu Tree</field>
+            <field name="res_model">www.menu</field>
+            <field name="domain" eval="[('parent', '=', None)]" pyson="1"/>
+        </record>
+        <record model="ir.action.act_window" id="act_menu_form_relate">
+            <field name="name">Menus</field>
+            <field name="res_model">www.menu</field>
+            <field name="domain"
+                eval="[If(Eval('active_ids', []) == [Eval('active_id')], ('site', '=', Eval('active_id')), ('site', 'in', Eval('active_ids')))]"
+                pyson="1"/>
+        </record>
+        <record model="ir.action.act_window.view" id="act_menu_form_relate_view1">
+            <field name="sequence" eval="10"/>
+            <field name="view" ref="menu_tree"/>
+            <field name="act_window" ref="act_menu_form_relate"/>
+        </record>
+        <record model="ir.action.act_window.view" id="act_menu_form_relate_view2">
+            <field name="sequence" eval="20"/>
+            <field name="view" ref="menu_form"/>
+            <field name="act_window" ref="act_menu_form_relate"/>
+        </record>
+        <record model="ir.action.keyword" id="act_menu_form_relate_keyword1">
+            <field name="keyword">form_relate</field>
+            <field name="model">www.site,-1</field>
+            <field name="action" ref="act_menu_form_relate"/>
+        </record>
+        <record model="ir.action.act_window.view" id="menu_action_tree">
+            <field name="sequence" eval="10"/>
+            <field name="view" ref="menu_tree"/>
+            <field name="act_window" ref="menu_action"/>
+        </record>
+        <record model="ir.action.act_window.view" id="menu_action_view">
+            <field name="sequence" eval="20"/>
+            <field name="view" ref="menu_form"/>
+            <field name="act_window" ref="menu_action"/>
+        </record>
+        <menuitem action="menu_action" id="menu_menu" parent="menu_site" sequence="20"/>
+
+        <record model="ir.action.act_window" id="menu_action_simple">
+            <field name="name">Menus</field>
+            <field name="res_model">www.menu</field>
+        </record>
+        <record model="ir.action.act_window.view" id="menu_action_simple_tree">
+            <field name="sequence" eval="10"/>
+            <field name="view" ref="menu_tree"/>
+            <field name="act_window" ref="menu_action_simple"/>
+        </record>
+        <record model="ir.action.act_window.view" id="menu_action_simple_view">
+            <field name="sequence" eval="20"/>
+            <field name="view" ref="menu_form"/>
+            <field name="act_window" ref="menu_action_simple"/>
+        </record>
+        <menuitem action="menu_action_simple" id="menu_menu_simple" parent="menu_menu" sequence="10"/>
+    </data>
+</tryton>
