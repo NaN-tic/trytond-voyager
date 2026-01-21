@@ -1,5 +1,9 @@
 <tryton>
     <data>
+        <record model="ir.ui.icon" id="public_icon">
+            <field name="name">voyager-public</field>
+            <field name="path">icons/voyager-public.svg</field>
+        </record>
         <!-- www.site -->
         <record model="ir.ui.view" id="site_form">
             <field name="model">www.site</field>
@@ -43,7 +47,7 @@
             <field name="act_window" ref="site_action"/>
         </record>
 
-        <menuitem action="site_action" id="menu_site" parent="ir.menu_administration" sequence="200"/>
+        <menuitem action="site_action" id="menu_site" parent="ir.menu_administration" sequence="200" icon="voyager-public"/>
 
         <!-- www.uri -->
         <record model="ir.ui.view" id="uri_form">
