@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<!-- This file is part of Tryton.  The COPYRIGHT file at the top level of
+this repository contains the full copyright notices and license terms. -->
+<form>
+    <label name="name"/>
+    <field name="name"/>
+    <label name="sequence"/>
+    <field name="sequence"/>
+    <label name="site"/>
+    <field name="site"/>
+    <label name="type"/>
+    <field name="type"/>
+    <label name="uri"/>
+    <field name="uri"/>
+    <newline/>
+    <label name="url"/>
+    <field name="url" widget="url"/>
+    <newline/>
+    <label name="parent"/>
+    <field name="parent"/>
+    <newline/>
+    <field name="menus" colspan="4"/>
+</form>

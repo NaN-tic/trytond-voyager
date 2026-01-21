@@ -742,10 +742,6 @@ class Endpoint(Component):
     _type = None
 
     def __init__(self, *args, **kwargs):
-        render = True
-        if 'render' in kwargs:
-            render = kwargs['render']
-            kwargs.pop('render')
         self.cached = self._cached
         if 'cached' in kwargs:
             self.cached = self.cached and kwargs['cached']
@@ -819,10 +815,46 @@ class VoyagerURI(ModelSQL, ModelView):
 
     site = fields.Many2One('www.site', 'Site', required=True)
     uri = fields.Char('URI', required=True)
+    main_uri = fields.Many2One(
+        'www.uri', 'Main URI',
+        domain=[
+            ('main_uri', '=', None),
+        ])
+    related_uris = fields.One2Many(
+        'www.uri', 'main_uri', 'Related URIs')
+    canonical_uri = fields.Function(
+        fields.Many2One('www.uri', 'Canonical URI'),
+        'get_canonical_uri',
+    )
     language = fields.Many2One('ir.lang', 'Language')
     endpoint = fields.Many2One('ir.model', 'Endpoint', required=True)
     resource = fields.Reference('Resource', selection='get_resources',
         required=True, readonly=True)
+
+    def get_rec_name(self, name):
+        return self.uri or ''
+
+    def _get_canonical_uri(self):
+        URI = self.__class__
+
+        language = Transaction().context.get('language')
+        related = URI.search([
+            ('main_uri', '=', self.id),
+            ('language.code', '=', language)])
+        return related and related[0] or None
+
+    @classmethod
+    def get_canonical_uri(cls, uris, name):
+        result = {}
+
+        for uri in uris:
+            if uri.main_uri:
+                result[uri.id] = uri.main_uri._get_canonical_uri()
+            elif uri.related_uris:
+                result[uri.id] = uri._get_canonical_uri()
+            else:
+                result[uri.id] = None
+        return result
 
     @classmethod
     def _get_resources(cls):
@@ -912,8 +944,6 @@ class VoyagerUriBuilder(Wizard):
 
     def transition_build_uris(self):
         pool = Pool()
-        URI = pool.get('www.uri')
-        to_save = []
         for model_name in self.ask.models:
             Model = pool.get(model_name)
             if not hasattr(Model, 'generate_uri'):
