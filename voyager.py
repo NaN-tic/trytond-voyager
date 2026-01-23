@@ -445,24 +445,30 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         return {
             }
 
-    def rendermarkdown(self, text):
+    def rendermarkdown(self, text, start_header=1):
         '''Return html text from markdown format'''
-        def header_level(text):
-            for count in range(5, 0, -1):
-                hs = str(count)
-                hr = str(count+1)
-                text = text.replace(f'<h{hs}', f'<h{hr}').replace(
-                    f'</h{hs}>', f'</h{hr}>')
-            return text
-
         if not text:
             return ''
+
         try:
             text = markdown.markdown(text, output_format='xhtml',
                 extensions=['tables'])
         except Exception as e:
             print(f'Error: {e}')
             return ''
+
+        if start_header > 1:
+            MAX_HEADER = 6
+
+            # Because we cannot replace h6 with a lower one, we need to start replacing from h5 to h1
+            for level in range(MAX_HEADER - 1, 0, -1):
+                replc = level + (start_header - 1)
+
+                if replc > MAX_HEADER:
+                    replc = MAX_HEADER
+
+                text = text.replace(f'<h{level}', f'<h{replc}').replace(f'</h{level}>', f'</h{replc}>')
+
         return text
 
 
