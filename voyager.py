@@ -308,6 +308,8 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                             # to None
                             if not Model.search([('id', '=', args[arg])]):
                                 value = None
+                            else:
+                                value = int(args[arg])
 
                 if arg in function.__code__.co_varnames[:function.__code__.co_argcount]:
                     function_variables[arg] = value
