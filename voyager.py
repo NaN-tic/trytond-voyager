@@ -163,7 +163,21 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 if voyager_uri:
                     voyager_uri = voyager_uri[0]
                     endpoint = voyager_uri.endpoint.model
-                    args = {'product': voyager_uri.resource.id}
+                    resource = voyager_uri.resource
+                    resource_model = getattr(resource, '__name__', None)
+                    args = {}
+
+                    if not resource_model:
+                        resource_model = str(resource).split(',')[0]
+                    try:
+                        EndpointModel = pool.get(endpoint)
+                    except Exception:
+                        EndpointModel = None
+                    if EndpointModel:
+                        for field_name, field in EndpointModel._fields.items():
+                            if (isinstance(field, fields.Many2One)
+                                    and field.model_name == resource_model):
+                                args[field_name] = resource.id
                     if voyager_uri.language:
                         language = voyager_uri.language.code
                 else:
@@ -785,6 +799,7 @@ class Endpoint(Component):
     @dualmethod
     def url(cls, **kwargs):
         pool = Pool()
+        VoyagerURI = pool.get('www.uri')
 
         values = {}
         for key in kwargs.keys():
@@ -806,6 +821,21 @@ class Endpoint(Component):
                     value = kwargs[key]
             values[key] = value
 
+        site = None
+        if hasattr(Transaction().context.get('voyager_context'), 'site'):
+            site = Transaction().context.get('voyager_context').site
+
+        if site and site.route_method == 'uri':
+            if len(kwargs) == 1 and isinstance(
+                    list(kwargs.values())[0], ModelSQL):
+                resource = list(kwargs.values())[0]
+                voyager_uris = VoyagerURI.search([
+                    ('site', '=', site.id),
+                    ('endpoint.model', '=', cls.__name__),
+                    ('resource', '=', str(resource)),
+                ], limit=1)
+                if voyager_uris:
+                    return f'{cls.web_prefix()}{voyager_uris[0].uri}'
         #Minimum required to handle the url building
         adapter = cls.adapter()
         builder = adapter.build(cls.__name__, values)
@@ -884,16 +914,20 @@ class VoyagerURI(ModelSQL, ModelView):
 
     @classmethod
     def compute_uris(cls, dictionary):
+        records, sites = zip(*dictionary.keys())
         old_uris = {
-            (str(uri.resource), uri.uri) : uri
-            for uri in cls.search([('resource', 'in', list(dictionary.keys()))])
+            (str(uri.resource), str(uri.site), uri.uri) : uri
+            for uri in cls.search([
+                ('resource', 'in', list(set(records))),
+                ('site', 'in', list(set(sites))),
+            ])
         }
 
         to_save = []
         to_delete = old_uris.copy()
         for uris in dictionary.values():
             for uri in uris:
-                key = (str(uri.resource), uri.uri)
+                key = (str(uri.resource), str(uri.site.id),uri.uri)
                 if key not in old_uris:
                     to_save.append(uri)
                 else:
@@ -910,6 +944,7 @@ class VoyagerUriBuilderAsk(ModelView):
     'Voyager URI Builder Ask'
     __name__ = 'www.uri.builder.ask'
 
+    sites = fields.MultiSelection(string="Sites", selection="get_sites")
     models = fields.MultiSelection(string="Models", selection="get_models")
 
     @staticmethod
@@ -917,6 +952,16 @@ class VoyagerUriBuilderAsk(ModelView):
         pool = Pool()
         URI = pool.get('www.uri')
         return URI._get_resources()
+
+    @classmethod
+    def get_sites(cls):
+        pool = Pool()
+        Site = pool.get('www.site')
+
+        return [
+            (str(site.id), site.name)
+            for site in Site.search([])
+        ]
 
     @classmethod
     def get_models(cls):
@@ -957,12 +1002,16 @@ class VoyagerUriBuilder(Wizard):
 
     def transition_build_uris(self):
         pool = Pool()
+        Site = pool.get('www.site')
+
+        sites = [Site(int(site_id)) for site_id in self.ask.sites]
+
         for model_name in self.ask.models:
             Model = pool.get(model_name)
             if not hasattr(Model, 'generate_uri'):
                 continue
             for records in grouped_slice(Model.search([])):
-                Model.generate_uri(records)
+                Model.generate_uri(list(records), sites=sites)
 
         self.result.result = 'URIs generated for models: %s' % ', '.join(
             self.ask.models)
