@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import jinja2
 import markdown
 from dominate.tags import div, p
+from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 from trytond.cache import Cache, freeze
 from trytond.config import config
 from trytond.model import (DeactivableMixin, ModelSQL, ModelView, fields,
@@ -137,6 +138,25 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
     def get_cache(self, session, request):
         return CacheManager.get(self.id)
 
+    def _get_context(self, session, component_model, args):
+        '''
+        Return the specific context for the site
+        '''
+        return {}
+
+    def from_url_prefix(self, endpoint=None):
+        '''
+        Return the specific prefixes on the site
+        '''
+        return ''
+
+    def to_url_prefix(self, endpoint, values={}):
+        '''
+        Return the specific data for the site prefixes on the site
+        '''
+        return {}
+
+
     def match_request(self, request, web_prefix=None):
         '''
         Given a request and site, check if the request uses any of the site
@@ -163,7 +183,21 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 if voyager_uri:
                     voyager_uri = voyager_uri[0]
                     endpoint = voyager_uri.endpoint.model
-                    args = {'product': voyager_uri.resource.id}
+                    resource = voyager_uri.resource
+                    resource_model = getattr(resource, '__name__', None)
+                    args = {}
+
+                    if not resource_model:
+                        resource_model = str(resource).split(',')[0]
+                    try:
+                        EndpointModel = pool.get(endpoint)
+                    except Exception:
+                        EndpointModel = None
+                    if EndpointModel:
+                        for field_name, field in EndpointModel._fields.items():
+                            if (isinstance(field, fields.Many2One)
+                                    and field.model_name == resource_model):
+                                args[field_name] = resource.id
                     if voyager_uri.language:
                         language = voyager_uri.language.code
                 else:
@@ -277,6 +311,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 cache.set('user-preferences-%d' % user_id, context)
             context['language'] = language
 
+        context.update(site._get_context(session, component_model, args ))
         with Transaction().set_context(voyager_context=voyager_context,
                 path=request.path, **context):
             # Get the component object and function
@@ -294,6 +329,8 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
             function_variables = {}
             instance_variables = {}
             for arg in args.keys():
+                if arg not in Component._fields.keys():
+                    continue
                 value = args[arg]
                 if hasattr(Component, arg):
                     if getattr(Component, arg) and hasattr(
@@ -310,7 +347,6 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                                 value = None
                             else:
                                 value = int(args[arg])
-
                 if arg in function.__code__.co_varnames[:function.__code__.co_argcount]:
                     function_variables[arg] = value
                 else:
@@ -390,7 +426,8 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 if isinstance(Model._method, str):
                     methods = [Model._method]
 
-                url_map = Rule(f'{web_prefix or ""}{Model._url}',
+                url_map = Rule(
+                    f'{web_prefix or ""}{self.from_url_prefix(Model)}{Model._url}',
                     endpoint = Model.__name__,
                     methods=methods)
 
@@ -716,7 +753,6 @@ class Component(ModelView):
             endpoint = f'{self.__class__.__name__}/{endpoint}'
 
         # Always expect the elment here
-        # TODO: we need to accept a same endpoint with multiples rules with differents args
         for arg in endpoint_args[endpoint]:
             value = getattr(self, arg)
             if hasattr(value, '__name__'):
@@ -785,26 +821,67 @@ class Endpoint(Component):
     @dualmethod
     def url(cls, **kwargs):
         pool = Pool()
+        VoyagerURI = pool.get('www.uri')
 
         values = {}
-        for key in kwargs.keys():
+        uri_values = {}
+        voyager_uri = None
+
+        site = None
+        context = Transaction().context.get('voyager_context')
+        if hasattr(context, 'site'):
+            site = context.site
+
+        for key, raw in kwargs.items():
             if not hasattr(cls, key):
                 # Key not found
-                value = kwargs[key]
+                value = raw
             else:
                 # Key found, check if it is a model
                 field = getattr(cls, key)
                 if hasattr(field, 'model_name'):
-                    value = kwargs[key]
+                    value = raw
 
                     Model = pool.get(field.model_name)
                     if hasattr(Model, 'to_request'):
-                        if Model.search([('id', '=', kwargs[key])]):
-                            model = Model(kwargs[key])
+                        if Model.search([('id', '=', raw)]):
+                            model = Model(raw)
                             value = model.to_request(cls.site, cls.__name__)
                 else:
-                    value = kwargs[key]
+                    value = raw
             values[key] = value
+
+            if site and site.route_method == 'uri':
+                if (key in cls._fields.keys() and
+                        isinstance(cls._fields.get(key), fields.Many2One)):
+                    if isinstance(raw, ModelSQL):
+                        resource = raw
+                    else:
+                        Model = pool.get(cls._fields.get(key).model_name)
+                        resource = Model(raw)
+
+                    if not voyager_uri:
+                        voyager_uris = VoyagerURI.search([
+                            ('site', '=', site.id),
+                            ('endpoint.model', '=', cls.__name__),
+                            ('resource', '=', str(resource)),
+                        ], limit=1)
+
+                        if voyager_uris:
+                            voyager_uri = voyager_uris[0]
+                    else:
+                        uri_values[key] = raw
+                else:
+                    uri_values[key] = raw
+
+        if site:
+            values.update(site.to_url_prefix(cls, values))
+
+        if voyager_uri:
+            parsed = urlparse(voyager_uri.uri)
+            query = dict(parse_qsl(parsed.query))
+            query.update(uri_values)
+            return f'{cls.web_prefix()}{urlunparse(parsed._replace(query=urlencode(query)))}'
 
         #Minimum required to handle the url building
         adapter = cls.adapter()
@@ -884,16 +961,20 @@ class VoyagerURI(ModelSQL, ModelView):
 
     @classmethod
     def compute_uris(cls, dictionary):
+        records, sites = zip(*dictionary.keys())
         old_uris = {
-            (str(uri.resource), uri.uri) : uri
-            for uri in cls.search([('resource', 'in', list(dictionary.keys()))])
+            (str(str(uri.site.id), uri.resource) , uri.uri) : uri
+            for uri in cls.search([
+                ('resource', 'in', list(set(records))),
+                ('site', 'in', list(set(sites))),
+            ])
         }
 
         to_save = []
         to_delete = old_uris.copy()
         for uris in dictionary.values():
             for uri in uris:
-                key = (str(uri.resource), uri.uri)
+                key = (str(uri.site.id), str(uri.resource),uri.uri)
                 if key not in old_uris:
                     to_save.append(uri)
                 else:
@@ -910,6 +991,7 @@ class VoyagerUriBuilderAsk(ModelView):
     'Voyager URI Builder Ask'
     __name__ = 'www.uri.builder.ask'
 
+    sites = fields.MultiSelection(string="Sites", selection="get_sites")
     models = fields.MultiSelection(string="Models", selection="get_models")
 
     @staticmethod
@@ -917,6 +999,16 @@ class VoyagerUriBuilderAsk(ModelView):
         pool = Pool()
         URI = pool.get('www.uri')
         return URI._get_resources()
+
+    @classmethod
+    def get_sites(cls):
+        pool = Pool()
+        Site = pool.get('www.site')
+
+        return [
+            (str(site.id), site.name)
+            for site in Site.search([])
+        ]
 
     @classmethod
     def get_models(cls):
@@ -957,12 +1049,16 @@ class VoyagerUriBuilder(Wizard):
 
     def transition_build_uris(self):
         pool = Pool()
+        Site = pool.get('www.site')
+
+        sites = [Site(int(site_id)) for site_id in self.ask.sites]
+
         for model_name in self.ask.models:
             Model = pool.get(model_name)
             if not hasattr(Model, 'generate_uri'):
                 continue
             for records in grouped_slice(Model.search([])):
-                Model.generate_uri(records)
+                Model.generate_uri(list(records), sites=sites)
 
         self.result.result = 'URIs generated for models: %s' % ', '.join(
             self.ask.models)
