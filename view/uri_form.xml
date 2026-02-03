@@ -4,12 +4,15 @@ this repository contains the full copyright notices and license terms. -->
 <form>
     <label name="resource"/>
     <field name="resource"/>
+    <label name="active"/>
+    <field name="active"/>
     <label name="language"/>
     <field name="language"/>
     <label name="endpoint"/>
     <field name="endpoint"/>
     <label name="site"/>
     <field name="site"/>
+    <newline/>
     <label name="uri"/>
     <field name="uri" colspan="3"/>
     <label name="main_uri"/>

@@ -1,11 +1,12 @@
 <form>
     <label name="name"/>
     <field name="name"/>
+    <label name="active"/>
+    <field name="active"/>
     <label name="type"/>
     <field name="type"/>
     <label name="route_method"/>
     <field name="route_method"/>
-    <newline/>
     <label name="url"/>
     <field name="url" colspan="3"/>
     <separator string="Session" colspan="4" id="session"/>

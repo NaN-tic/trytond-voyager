@@ -899,7 +899,7 @@ class VoyagerURL():
         raise NotImplementedError('Method to_request not implemented')
 
 
-class VoyagerURI(ModelSQL, ModelView):
+class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
     'Voyager URI'
     __name__ = 'www.uri'
 
@@ -961,9 +961,11 @@ class VoyagerURI(ModelSQL, ModelView):
 
     @classmethod
     def compute_uris(cls, dictionary):
+        if not dictionary:
+            return
         records, sites = zip(*dictionary.keys())
         old_uris = {
-            (str(str(uri.site.id), uri.resource) , uri.uri) : uri
+            ((str(uri.site.id), str(uri.resource)) , uri.uri) : uri
             for uri in cls.search([
                 ('resource', 'in', list(set(records))),
                 ('site', 'in', list(set(sites))),
@@ -971,17 +973,16 @@ class VoyagerURI(ModelSQL, ModelView):
         }
 
         to_save = []
-        to_delete = old_uris.copy()
+        to_deactivate = old_uris.copy()
         for uris in dictionary.values():
             for uri in uris:
                 key = (str(uri.site.id), str(uri.resource),uri.uri)
                 if key not in old_uris:
                     to_save.append(uri)
                 else:
-                    to_delete.pop(key, None)
-
+                    to_deactivate.pop(key, None)
+        cls.write(list(to_deactivate.values()), {'active': False})
         cls.save(to_save)
-        cls.delete(to_delete.values())
 
 #TODO: validate unique uri per site and language
 #TODO: how we generate the correct uri to each component linked with a resource?
@@ -999,6 +1000,12 @@ class VoyagerUriBuilderAsk(ModelView):
         pool = Pool()
         URI = pool.get('www.uri')
         return URI._get_resources()
+
+    @staticmethod
+    def default_sites():
+        pool = Pool()
+        Site = pool.get('www.site')
+        return [str(site.id) for site in Site.search([])]
 
     @classmethod
     def get_sites(cls):
