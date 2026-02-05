@@ -180,9 +180,10 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 voyager_uri = VoyagerURI.search([
                     ('site', '=', self.id),
                     ('uri', '=', request_path)], limit=1)
+
                 if voyager_uri:
                     voyager_uri = voyager_uri[0]
-                    endpoint = voyager_uri.endpoint.model
+                    endpoint = voyager_uri.endpoint.name
                     resource = voyager_uri.resource
                     resource_model = getattr(resource, '__name__', None)
                     args = {}
