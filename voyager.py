@@ -919,7 +919,7 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
     language = fields.Many2One('ir.lang', 'Language')
     endpoint = fields.Many2One('ir.model', 'Endpoint', required=True)
     resource = fields.Reference('Resource', selection='get_resources',
-        required=True, readonly=True)
+        readonly=True)
 
     def get_rec_name(self, name):
         return self.uri or ''
@@ -954,7 +954,7 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
     def get_resources(cls):
         Model = Pool().get('ir.model')
         models = Model.search([('model', 'in', cls._get_resources())])
-        return [
+        return [(None, '')] + [
             (model.model, model.name)
             for model in models
         ]
@@ -1025,7 +1025,7 @@ class VoyagerUriBuilderAsk(ModelView):
         return [
             (model, name)
             for model, name in URI.get_resources()
-            if getattr(pool.get(model), "generate_uri", False)
+            if model and getattr(pool.get(model), "generate_uri", False)
         ]
 
 

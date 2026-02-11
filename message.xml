@@ -1,0 +1,7 @@
+<tryton>
+    <data>
+        <record model="ir.message" id="msg_menu_site_mismatch">
+            <field name="text">The site of a menu must match the site of its parent menu.</field>
+        </record>
+    </data>
+</tryton>
