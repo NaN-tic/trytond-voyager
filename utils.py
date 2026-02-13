@@ -1,11 +1,11 @@
-from trytond.model import ModelSQL, ModelView, fields
+from trytond.model import DeactivableMixin, ModelSQL, ModelView, fields
 from trytond.pyson import Eval
 from trytond.exceptions import UserError
 from trytond.i18n import gettext
 from trytond.pool import Pool
 
 
-class Menu(ModelSQL, ModelView):
+class Menu(DeactivableMixin, ModelSQL, ModelView):
     'WWW Menu'
     __name__ = 'www.menu'
 

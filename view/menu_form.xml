@@ -4,8 +4,12 @@ this repository contains the full copyright notices and license terms. -->
 <form>
     <label name="name"/>
     <field name="name"/>
-    <label name="sequence"/>
-    <field name="sequence"/>
+    <group colspan="2" col="-1" id="options">
+        <label name="sequence"/>
+        <field name="sequence"/>
+        <label name="active"/>
+        <field name="active"/>
+    </group>
     <label name="site"/>
     <field name="site"/>
     <label name="type"/>
