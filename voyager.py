@@ -874,6 +874,14 @@ class Endpoint(Component):
                 else:
                     uri_values[key] = raw
 
+        if not kwargs and site and site.route_method == 'uri':
+            voyager_uris = VoyagerURI.search([
+                ('site', '=', site.id),
+                ('endpoint.model', '=', cls.__name__),
+                ], limit=1)
+            if voyager_uris:
+                voyager_uri = voyager_uris[0]
+
         if site:
             values.update(site.to_url_prefix(cls, values))
 
@@ -916,7 +924,8 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
         fields.Many2One('www.uri', 'Canonical URI'),
         'get_canonical_uri',
     )
-    language = fields.Many2One('ir.lang', 'Language')
+    language = fields.Many2One('ir.lang', 'Language',
+        domain=[('translatable', '=', True)])
     endpoint = fields.Many2One('ir.model', 'Endpoint', required=True)
     resource = fields.Reference('Resource', selection='get_resources',
         readonly=True)
