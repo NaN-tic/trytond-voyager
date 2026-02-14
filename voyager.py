@@ -202,54 +202,58 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 cache.set('user-preferences-%d' % user_id, context)
         with Transaction().set_context(voyager_context=voyager_context,
                 path=request.path, **context):
-            # Get the component object and function
-            try:
-                Component = pool.get(component_model)
-            except:
-                raise ValueError('No component found %s' % component_model)
-            try:
-                function = getattr(Component, component_function)
-            except:
-                raise ValueError('No function found %s' % component_function)
+            # Use the logged-in system user for access control and audit fields
+            # (create_uid/write_uid). Fall back to the configured user when
+            # there is no session.system_user.
+            with Transaction().set_user(user_id):
+                # Get the component object and function
+                try:
+                    Component = pool.get(component_model)
+                except:
+                    raise ValueError('No component found %s' % component_model)
+                try:
+                    function = getattr(Component, component_function)
+                except:
+                    raise ValueError('No function found %s' % component_function)
 
-            # Get the variables needed to creatne the component and execute the
-            # function
-            function_variables = {}
-            instance_variables = {}
-            for arg in args.keys():
-                value = args[arg]
-                if hasattr(Component, arg):
-                    if getattr(Component, arg) and hasattr(
-                            getattr(Component, arg), 'model_name'):
-                        Model = pool.get(getattr(Component, arg).model_name)
-                        if hasattr(Model, 'from_request'):
-                            value = Model.from_request(site, args[arg],
-                                Component.__name__)
-                        else:
-                            # If we found a model and we dont use "from_request",
-                            # check if the id exists, if not exists, set value
-                            # to None
-                            if not Model.search([('id', '=', args[arg])]):
-                                value = None
+                # Get the variables needed to creatne the component and execute the
+                # function
+                function_variables = {}
+                instance_variables = {}
+                for arg in args.keys():
+                    value = args[arg]
+                    if hasattr(Component, arg):
+                        if getattr(Component, arg) and hasattr(
+                                getattr(Component, arg), 'model_name'):
+                            Model = pool.get(getattr(Component, arg).model_name)
+                            if hasattr(Model, 'from_request'):
+                                value = Model.from_request(site, args[arg],
+                                    Component.__name__)
+                            else:
+                                # If we found a model and we dont use "from_request",
+                                # check if the id exists, if not exists, set value
+                                # to None
+                                if not Model.search([('id', '=', args[arg])]):
+                                    value = None
 
-                if arg in function.__code__.co_varnames[:function.__code__.co_argcount]:
-                    function_variables[arg] = value
+                    if arg in function.__code__.co_varnames[:function.__code__.co_argcount]:
+                        function_variables[arg] = value
+                    else:
+                        instance_variables[arg] = value
+                print(f'Function variables: {function_variables} \n Instance variables: {instance_variables}')
+
+                # TODO: make more efficent the way we get the component, right
+                # now, even if we don't use the compoent we "execute" the render
+                # function
+                if function_variables:
+                    instance_variables['render'] = False
+                    component = Component(**instance_variables)
+                    #TODO: we need to handle the error pages here
+                    response = getattr(component, component_function)(function_variables)
                 else:
-                    instance_variables[arg] = value
-            print(f'Function variables: {function_variables} \n Instance variables: {instance_variables}')
-
-            # TODO: make more efficent the way we get the component, right
-            # now, even if we don't use the compoent we "execute" the render
-            # function
-            if function_variables:
-                instance_variables['render'] = False
-                component = Component(**instance_variables)
-                #TODO: we need to handle the error pages here
-                response = getattr(component, component_function)(function_variables)
-            else:
-                component = Component(**instance_variables)
-                #TODO: we need to handle the error pages here
-                response = getattr(component, component_function)()
+                    component = Component(**instance_variables)
+                    #TODO: we need to handle the error pages here
+                    response = getattr(component, component_function)()
 
             # Render the content and prepare the response. The DOMinate render
             # can handle the raw() objects and any tag (html_tag) we send any
