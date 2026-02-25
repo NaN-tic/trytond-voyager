@@ -313,7 +313,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
 
         context.update(site._get_context(session, component_model, args ))
         with Transaction().set_context(voyager_context=voyager_context,
-                path=request.path, **context):
+                path=request.path, **context).set_user(user_id):
             # Get the component object and function
             try:
                 Component = pool.get(component_model)
