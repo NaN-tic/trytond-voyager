@@ -10,6 +10,8 @@ class Menu(DeactivableMixin, ModelSQL, ModelView):
     __name__ = 'www.menu'
 
     name = fields.Char('Name', required=True, translate=True)
+    icon = fields.Char('Icon')
+    description = fields.Text('Description')
     site = fields.Many2One('www.site', 'Site', required=True)
     type = fields.Selection([
         (None, ''),
