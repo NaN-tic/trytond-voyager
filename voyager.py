@@ -236,8 +236,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         User = pool.get('res.user')
 
         if not user_id:
-            user_id = config.get('voyager', 'user')
-
+            user_id = config.getint('voyager', 'user_id')
         if site_id:
             site = cls(site_id)
         else:
@@ -351,6 +350,13 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                     function_variables[arg] = value
                 else:
                     instance_variables[arg] = value
+
+            # We set None as default value for each field of the component that
+            # is not set, thanks to this, we dont need to check if the field
+            # exists at Endpoint level.
+            for field in Component._fields.keys():
+                if field not in args.keys():
+                    instance_variables[field] = None
 
             # TODO: make more efficent the way we get the component, right
             # now, even if we don't use the compoent we "execute" the render
