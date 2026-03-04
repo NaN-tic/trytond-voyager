@@ -47,6 +47,8 @@ class VoyagerWSGI(object):
 app = VoyagerWSGI()
 
 app.database = config.get('voyager', 'database')
+if not app.database:
+    app.database = os.environ.get('TRYTOND_DATABASE_NAMES')
 if app.database:
     app.start()
 
