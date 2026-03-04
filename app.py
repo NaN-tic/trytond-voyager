@@ -8,6 +8,8 @@ from trytond.modules.voyager import voyager
 import os
 from werkzeug.middleware.shared_data import SharedDataMiddleware
 
+MODULES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
 @click.group()
 def main():
     'Voyager'
@@ -44,7 +46,11 @@ class VoyagerWSGI(object):
     def __call__(self, environ, start_response):
         return self.wsgi_app(environ, start_response)
 
+
+static_folder = config.get('voyager', 'static_folder')
 app = VoyagerWSGI()
+app.wsgi_app = SharedDataMiddleware(app.wsgi_app, {
+    '/static': os.path.join(MODULES_PATH, static_folder)})
 
 app.database = config.get('voyager', 'database')
 if not app.database:
