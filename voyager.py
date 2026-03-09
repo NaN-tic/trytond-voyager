@@ -432,6 +432,9 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 if isinstance(Model._method, str):
                     methods = [Model._method]
 
+                if not Model._url:
+                    raise KeyError('Missing _url in model %s' % Model.__name__)
+
                 url_map = Rule(
                     f'{web_prefix or ""}{self.from_url_prefix(Model)}{Model._url}',
                     endpoint = Model.__name__,
