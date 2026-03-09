@@ -138,7 +138,6 @@ class WebTestCase(unittest.TestCase):
     def setUpClass(self):
         "Method that executes only once, at the very first and before any test."
         database_path = config.get('database', 'path')
-        web_root = config.get('web', 'root')
 
         # In order to avoid permission issues or trying to write on an
         # inexistent path, we set /tmp as the temporary path for the database.
@@ -147,14 +146,6 @@ class WebTestCase(unittest.TestCase):
         if not database_path or not os.path.exists(database_path):
             logger.warning("Setting TRYTOND_DATABASE__PATH=/tmp...")
             config.set('database', 'path', '/tmp')
-
-        # In order to be able to run web tests, we need to set the web root to 'sao' folder,
-        # but we cannot set it with 'config.set()', because the variable was already readed.
-        if not web_root or not os.path.exists(web_root):
-            raise Exception(
-                "Execute 'export TRYTOND_WEB__ROOT=sao' to run web tests. "
-                "If not defined or improperly set, web page will not load."
-            )
 
         self.timeout_in_secs = self.timeout / 1000
         self.config = activate_modules(self.modules, self.database)
