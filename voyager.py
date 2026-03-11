@@ -440,7 +440,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 if isinstance(Model._method, str):
                     methods = [Model._method]
 
-                if not Model._url:
+                if Model._url is None:
                     raise KeyError('Missing _url in model %s' % Model.__name__)
 
                 url_map = Rule(
