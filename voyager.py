@@ -311,7 +311,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 cache.set('user-preferences-%d' % user_id, context)
             context['language'] = language
 
-        context.update(site._get_context(session, component_model, args ))
+        context.update(site._get_context(session, component_model, args))
         with Transaction().set_context(voyager_context=voyager_context,
                 path=request.path, **context), Transaction().set_user(user_id):
             # Get the component object and function
@@ -332,9 +332,10 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 if arg not in Component._fields.keys():
                     continue
                 value = args[arg]
-                if hasattr(Component, arg):
-                    if getattr(Component, arg) and hasattr(
-                            getattr(Component, arg), 'model_name'):
+
+                attribute = getattr(Component, arg, None)
+                if attribute:
+                    if hasattr(attribute, 'model_name'):
                         Model = pool.get(getattr(Component, arg).model_name)
                         if hasattr(Model, 'from_request'):
                             value = Model.from_request(site, args[arg],
@@ -347,6 +348,13 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                                 value = None
                             else:
                                 value = int(args[arg])
+                    elif attribute._py_type:
+                        try:
+                            value = attribute._py_type(args[arg])
+                        except:
+                            logger.warning('Incorrect value for field %s: %s', arg, args[arg])
+                            value = None
+
                 if arg in function.__code__.co_varnames[:function.__code__.co_argcount]:
                     function_variables[arg] = value
                 else:
