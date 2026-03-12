@@ -621,6 +621,10 @@ class Component(ModelView):
                 if isinstance(getattr(self, x), Trigger):
                     getattr(self, x).name = f"{self.__name__.replace('.','-')}_{x}"
 
+        for field in self._fields.keys():
+            if not hasattr(self, field):
+                setattr(self, field, None)
+
         self._tag = None
         if render:
             self.create_tag()
