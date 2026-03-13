@@ -337,21 +337,24 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                     if hasattr(attribute, 'model_name'):
                         Model = pool.get(getattr(Component, arg).model_name)
                         if hasattr(Model, 'from_request'):
-                            value = Model.from_request(site, args[arg],
+                            value = Model.from_request(site, value,
                                 Component.__name__)
                         else:
                             # If we found a model and we dont use "from_request",
                             # check if the id exists, if not exists, set value
                             # to None
-                            if not Model.search([('id', '=', args[arg])]):
-                                value = None
-                            else:
-                                value = int(args[arg])
+                            if value is not None:
+                                try:
+                                    value = int(value)
+                                except:
+                                    pass
+                                if value and not Model.search([('id', '=', value)]):
+                                    value = None
                     elif attribute._py_type:
                         try:
-                            value = attribute._py_type(args[arg])
+                            value = attribute._py_type(value)
                         except:
-                            logger.warning('Incorrect value for field %s: %s', arg, args[arg])
+                            logger.warning('Incorrect value for field %s: %s', arg, value)
                             value = None
 
                 if arg in function.__code__.co_varnames[:function.__code__.co_argcount]:
