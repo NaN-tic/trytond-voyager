@@ -988,7 +988,7 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
         Model = Pool().get('ir.model')
         models = Model.search([('model', 'in', cls._get_resources())])
         return [(None, '')] + [
-            (model.name, model.model)
+            (model.model, model.name)
             for model in models
         ]
 
