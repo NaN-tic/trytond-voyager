@@ -503,10 +503,11 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
 class Session(ModelSQL, ModelView):
     'Session'
     __name__ = 'www.session'
-    site = fields.Many2One('www.site', 'Site', required=True)
+    site = fields.Many2One('www.site', 'Site', required=True,
+        ondelete='CASCADE')
     session_id = fields.Char('Session ID', required=True)
-    user = fields.Many2One('web.user', 'User')
-    system_user = fields.Many2One('res.user', 'System User')
+    user = fields.Many2One('web.user', 'User', ondelete='CASCADE')
+    system_user = fields.Many2One('res.user', 'System User', ondelete='CASCADE')
     expiration_date = fields.DateTime('Expiration Date', required=True)
     #TODO: create cron to clean sessions
 
