@@ -10,7 +10,7 @@ from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 from trytond.cache import Cache, freeze
 from trytond.config import config
 from trytond.model import (DeactivableMixin, ModelSQL, ModelView, fields,
-    dualmethod)
+    dualmethod, sequence_ordered)
 from trytond.pool import Pool
 from trytond.wizard import Button, StateTransition, StateView, Wizard
 from trytond.transaction import Transaction
@@ -901,7 +901,7 @@ class VoyagerURL():
         raise NotImplementedError('Method to_request not implemented')
 
 
-class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
+class VoyagerURI(sequence_ordered(), DeactivableMixin, ModelSQL, ModelView):
     'Voyager URI'
     __name__ = 'www.uri'
 
