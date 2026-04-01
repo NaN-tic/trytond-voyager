@@ -962,7 +962,10 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
 
         language = Transaction().context.get('language')
         related = URI.search([
-            ('main_uri', '=', self.id),
+            ['OR',
+                ('main_uri', '=', self.id),
+                ('id', '=', self.id),
+            ],
             ('language.code', '=', language)])
         return related and related[0] or None
 
