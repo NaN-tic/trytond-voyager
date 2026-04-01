@@ -19,5 +19,5 @@ this repository contains the full copyright notices and license terms. -->
     <field name="main_uri" colspan="3"/>
     <label name="canonical_uri"/>
     <field name="canonical_uri" colspan="3"/>
-    <field name="related_uris" colspan="4"/>
+    <field name="related_uris" colspan="4" widget="many2many"/>
 </form>
