@@ -12,6 +12,7 @@ from trytond.config import config
 from trytond.model import (DeactivableMixin, ModelSQL, ModelView, fields,
     dualmethod)
 from trytond.pool import Pool
+from trytond.pyson import Bool, Eval
 from trytond.wizard import Button, StateTransition, StateView, Wizard
 from trytond.transaction import Transaction
 from trytond.tools import grouped_slice
@@ -943,7 +944,9 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
             ('main_uri', '=', None),
         ])
     related_uris = fields.One2Many(
-        'www.uri', 'main_uri', 'Related URIs')
+        'www.uri', 'main_uri', 'Related URIs', states={
+            'invisible': Bool(Eval('main_uri')),
+        })
     canonical_uri = fields.Function(
         fields.Many2One('www.uri', 'Canonical URI'),
         'get_canonical_uri',
