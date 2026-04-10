@@ -926,6 +926,11 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
     endpoint = fields.Many2One('ir.model', 'Endpoint', required=True)
     resource = fields.Reference('Resource', selection='get_resources',
         readonly=True)
+    show_sitemap = fields.Boolean('Sitemap')
+
+    @staticmethod
+    def default_show_sitemap():
+        return True
 
     def get_rec_name(self, name):
         return self.uri or ''
@@ -967,6 +972,94 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
             (model.name, model.string)
             for model in models
         ]
+
+    @classmethod
+    def _full_url(cls, site, uri):
+        path = uri.uri or "/"
+        if not path.startswith("/"):
+            path = f"/{path}"
+        base = (site.url or "").rstrip("/")
+        if base:
+            return f"{base}{path}"
+        return path
+
+    @classmethod
+    def _format_lastmod(cls, uri):
+        now = getattr(uri, 'write_date', None)
+        resource = getattr(uri, 'resource', None)
+        if resource:
+            now = getattr(resource, 'write_date', now)
+        if not now:
+            return None
+        zone = now.strftime("%z")
+        tz = f"{zone[:3]}:{zone[3:]}" if zone else "+00:00"
+        return f"{now.strftime('%Y-%m-%dT%H:%M:%S')}{tz}"
+
+    @classmethod
+    def sitemap(cls, site):
+        if not site:
+            return []
+        domain = [
+            ('site', '=', site.id),
+            ('active', '=', True),
+            ('show_sitemap', '=', True),
+        ]
+        uris = cls.search(domain)
+        entries = []
+        processed = set()
+        for uri in sorted(uris, key=lambda r: (r.uri or "", r.id)):
+            root = uri.main_uri or uri
+            if root.id in processed:
+                continue
+            group = [root]
+            if root.related_uris:
+                group.extend(root.related_uris)
+            processed.update(u.id for u in group)
+            alternates = []
+            for alt in group:
+                code = getattr(getattr(alt, "language", None), "code", None) or 'x-default'
+                alternates.append({
+                    'hreflang': code,
+                    'href': cls._full_url(site, alt),
+                })
+            entries.append({
+                'loc': cls._full_url(site, root),
+                'lastmod': cls._format_lastmod(root),
+                'changefreq': 'monthly',
+                'priority': '0.5',
+                'alternates': alternates,
+                'group': group,
+            })
+        return entries
+
+    @classmethod
+    def sitemap_xml(cls, site):
+        entries = cls.sitemap(site)
+        lines = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"'
+            ' xmlns:xhtml="http://www.w3.org/1999/xhtml">',
+        ]
+        for entry in entries:
+            lines.append('  <url>')
+            lines.append(f'    <loc>{entry["loc"]}</loc>')
+            if entry.get('lastmod'):
+                lines.append(f'    <lastmod>{entry["lastmod"]}</lastmod>')
+            if entry.get('changefreq'):
+                lines.append(f'    <changefreq>{entry["changefreq"]}</changefreq>')
+            if entry.get('priority'):
+                lines.append(f'    <priority>{entry["priority"]}</priority>')
+            for alt in entry.get('alternates', []):
+                hreflang = alt.get('hreflang') or ''
+                href = alt.get('href') or ''
+                lines.append(
+                    f'    <xhtml:link rel="alternate"'
+                    f' hreflang="{hreflang}"'
+                    f' href="{href}"/>'
+                )
+            lines.append('  </url>')
+        lines.append('</urlset>')
+        return '\n'.join(lines)
 
     @classmethod
     def compute_uris(cls, dictionary):
