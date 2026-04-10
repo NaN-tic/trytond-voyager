@@ -6,6 +6,8 @@ this repository contains the full copyright notices and license terms. -->
     <field name="resource"/>
     <label name="active"/>
     <field name="active"/>
+    <label name="sitemap"/>
+    <field name="sitemap"/>
     <label name="language"/>
     <field name="language"/>
     <label name="endpoint"/>
