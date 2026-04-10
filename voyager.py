@@ -926,10 +926,10 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
     endpoint = fields.Many2One('ir.model', 'Endpoint', required=True)
     resource = fields.Reference('Resource', selection='get_resources',
         readonly=True)
-    sitemap = fields.Boolean('Sitemap')
+    show_sitemap = fields.Boolean('Sitemap')
 
     @staticmethod
-    def default_sitemap():
+    def default_show_sitemap():
         return True
 
     def get_rec_name(self, name):
@@ -1002,9 +1002,8 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
         domain = [
             ('site', '=', site.id),
             ('active', '=', True),
+            ('show_sitemap', '=', True),
         ]
-        if 'sitemap' in getattr(cls, '_fields', {}):
-            domain.append(('sitemap', '=', True))
         uris = cls.search(domain)
         entries = []
         processed = set()

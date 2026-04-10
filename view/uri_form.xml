@@ -4,10 +4,12 @@ this repository contains the full copyright notices and license terms. -->
 <form>
     <label name="resource"/>
     <field name="resource"/>
-    <label name="active"/>
-    <field name="active"/>
-    <label name="sitemap"/>
-    <field name="sitemap"/>
+    <group col="-1" colspan="2" id="checkboxes" xexpand="0">
+        <label name="active"/>
+        <field name="active" xexpand="0" width="25"/>
+        <label name="show_sitemap"/>
+        <field name="show_sitemap" xexpand="0" width="25"/>
+    </group>
     <label name="language"/>
     <field name="language"/>
     <label name="endpoint"/>
