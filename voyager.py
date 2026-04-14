@@ -1,7 +1,9 @@
 import logging
 import os
 import secrets
+from collections import defaultdict
 from datetime import datetime, timedelta
+from xml.sax.saxutils import escape, quoteattr
 
 import jinja2
 import markdown
@@ -15,7 +17,7 @@ from trytond.pool import Pool
 from trytond.pyson import Bool, Eval
 from trytond.wizard import Button, StateTransition, StateView, Wizard
 from trytond.transaction import Transaction
-from trytond.tools import grouped_slice
+from trytond.tools import cursor_dict, grouped_slice, reduce_ids
 from werkzeug.routing import Map, Rule
 from werkzeug.wrappers import Response
 from werkzeug.exceptions import HTTPException
@@ -974,61 +976,110 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
         ]
 
     @classmethod
-    def _full_url(cls, site, uri):
-        path = uri.uri or "/"
-        if not path.startswith("/"):
-            path = f"/{path}"
-        base = (site.url or "").rstrip("/")
-        if base:
-            return f"{base}{path}"
-        return path
+    def _sitemap_rows(cls, site):
+        pool = Pool()
+        Lang = pool.get('ir.lang')
+        cursor = Transaction().connection.cursor()
 
-    @classmethod
-    def _format_lastmod(cls, uri):
-        now = getattr(uri, 'write_date', None)
-        resource = getattr(uri, 'resource', None)
-        if resource:
-            now = getattr(resource, 'write_date', now)
-        if not now:
-            return None
-        zone = now.strftime("%z")
-        tz = f"{zone[:3]}:{zone[3:]}" if zone else "+00:00"
-        return f"{now.strftime('%Y-%m-%dT%H:%M:%S')}{tz}"
+        uri = cls.__table__()
+        language = Lang.__table__()
+        query = (uri
+            .join(language, type_='LEFT', condition=uri.language == language.id)
+            .select(
+                uri.id.as_('id'),
+                uri.uri.as_('uri'),
+                uri.main_uri.as_('main_uri'),
+                uri.write_date.as_('write_date'),
+                uri.resource.as_('resource'),
+                language.code.as_('language_code'),
+                where=(uri.site == site.id)
+                & (uri.active == True)
+                & (uri.show_sitemap == True),
+                order_by=[uri.uri.asc, uri.id.asc]))
+        cursor.execute(*query)
+        return list(cursor_dict(cursor))
 
     @classmethod
     def sitemap(cls, site):
         if not site:
             return []
-        domain = [
-            ('site', '=', site.id),
-            ('active', '=', True),
-            ('show_sitemap', '=', True),
-        ]
-        uris = cls.search(domain)
-        entries = []
-        processed = set()
-        for uri in sorted(uris, key=lambda r: (r.uri or "", r.id)):
-            root = uri.main_uri or uri
-            if root.id in processed:
+
+        def full_url(path):
+            path = path or "/"
+            if not path.startswith("/"):
+                path = f"/{path}"
+            base = (site.url or "").rstrip("/")
+            if base:
+                return f"{base}{path}"
+            return path
+
+        def format_lastmod(value):
+            if not value:
+                return None
+            zone = value.strftime("%z")
+            tz = f"{zone[:3]}:{zone[3:]}" if zone else "+00:00"
+            return f"{value.strftime('%Y-%m-%dT%H:%M:%S')}{tz}"
+
+        rows = cls._sitemap_rows(site)
+        if not rows:
+            return []
+
+        groups = defaultdict(list)
+        roots = []
+        for row in rows:
+            root_id = row['main_uri'] or row['id']
+            groups[root_id].append(row)
+            if not row['main_uri']:
+                roots.append(row)
+
+        roots.sort(key=lambda row: (row['uri'] or '', row['id']))
+        resources_by_model = defaultdict(set)
+        for root in roots:
+            resource = root['resource']
+            if not resource:
                 continue
-            group = [root]
-            if root.related_uris:
-                group.extend(root.related_uris)
-            processed.update(u.id for u in group)
-            alternates = []
-            for alt in group:
-                code = getattr(getattr(alt, "language", None), "code", None) or 'x-default'
-                alternates.append({
-                    'hreflang': code,
-                    'href': cls._full_url(site, alt),
-                })
+            resource = str(resource)
+            model_name, _, record_id = resource.partition(',')
+            if model_name and record_id.isdigit():
+                resources_by_model[model_name].add(int(record_id))
+
+        resource_write_dates = {}
+        if resources_by_model:
+            pool = Pool()
+            cursor = Transaction().connection.cursor()
+            for model_name, ids in resources_by_model.items():
+                try:
+                    Model = pool.get(model_name)
+                except Exception:
+                    continue
+                if not hasattr(Model, '__table__'):
+                    continue
+                table = Model.__table__()
+                for sub_ids in grouped_slice(ids):
+                    query = table.select(
+                        table.id.as_('id'),
+                        table.write_date.as_('write_date'),
+                        where=reduce_ids(table.id, list(sub_ids)))
+                    cursor.execute(*query)
+                    for row in cursor_dict(cursor):
+                        resource_write_dates[f'{model_name},{row["id"]}'] = (
+                            row['write_date'])
+
+        entries = []
+        for root in roots:
+            group = sorted(groups[root['id']], key=lambda row: (
+                row['uri'] or '', row['id']))
+            alternates = [{
+                    'hreflang': row['language_code'] or 'x-default',
+                    'href': full_url(row['uri']),
+                } for row in group]
+            lastmod = resource_write_dates.get(root['resource'], root['write_date'])
             entries.append({
-                'loc': cls._full_url(site, root),
-                'lastmod': cls._format_lastmod(root),
+                'loc': full_url(root['uri']),
+                'lastmod': format_lastmod(lastmod),
                 'changefreq': 'monthly',
                 'priority': '0.5',
                 'alternates': alternates,
-                'group': group,
             })
         return entries
 
@@ -1042,20 +1093,23 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
         ]
         for entry in entries:
             lines.append('  <url>')
-            lines.append(f'    <loc>{entry["loc"]}</loc>')
+            lines.append(f'    <loc>{escape(entry["loc"] or "")}</loc>')
             if entry.get('lastmod'):
-                lines.append(f'    <lastmod>{entry["lastmod"]}</lastmod>')
+                lines.append(
+                    f'    <lastmod>{escape(entry["lastmod"])}</lastmod>')
             if entry.get('changefreq'):
-                lines.append(f'    <changefreq>{entry["changefreq"]}</changefreq>')
+                lines.append(
+                    f'    <changefreq>{escape(entry["changefreq"])}</changefreq>')
             if entry.get('priority'):
-                lines.append(f'    <priority>{entry["priority"]}</priority>')
+                lines.append(
+                    f'    <priority>{escape(entry["priority"])}</priority>')
             for alt in entry.get('alternates', []):
                 hreflang = alt.get('hreflang') or ''
                 href = alt.get('href') or ''
                 lines.append(
                     f'    <xhtml:link rel="alternate"'
-                    f' hreflang="{hreflang}"'
-                    f' href="{href}"/>'
+                    f' hreflang={quoteattr(hreflang)}'
+                    f' href={quoteattr(href)}/>'
                 )
             lines.append('  </url>')
         lines.append('</urlset>')
