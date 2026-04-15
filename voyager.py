@@ -914,7 +914,10 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
         'www.uri', 'Main URI',
         domain=[
             ('main_uri', '=', None),
-        ])
+        ],
+        states={
+            'invisible': Bool(Eval('related_uris')),
+        })
     related_uris = fields.One2Many(
         'www.uri', 'main_uri', 'Related URIs', states={
             'invisible': Bool(Eval('main_uri')),
