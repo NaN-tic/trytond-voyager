@@ -1024,7 +1024,8 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
                 language.code.as_('language_code'),
                 where=(uri.site == site.id)
                 & (uri.active == True)
-                & (uri.show_sitemap == True),
+                & (uri.show_sitemap == True)
+                & (uri.main_uri == None),
                 order_by=[uri.uri.asc, uri.id.asc]))
         cursor.execute(*query)
         return list(cursor_dict(cursor))
