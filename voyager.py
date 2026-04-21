@@ -149,7 +149,8 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
 
         # Get the component and function to execute
         print(f'Request: {request} | Path: {request.path}')
-        endpoint, args = adapter.match(request.path)
+        endpoint, args = adapter.match(
+            request.path, method=request.method)
         component_model = endpoint.split('/')[0]
         component_function = None
 
