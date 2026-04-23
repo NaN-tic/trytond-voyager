@@ -312,6 +312,8 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
             context = User._get_preferences(user, context_only=True)
             if cache:
                 cache.set('user-preferences-%d' % user_id, context)
+            if not language:
+                language = 'en'
             context['language'] = language
 
         context.update(site._get_context(session, component_model, args))
