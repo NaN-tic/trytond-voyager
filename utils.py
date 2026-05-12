@@ -66,7 +66,6 @@ class Menu(sequence_ordered(), DeactivableMixin, ModelSQL, ModelView):
                 resource = canonical_uri.resource
 
                 try:
-                    #TODO: replace model with name in 7.6
                     Component = pool.get(canonical_uri.endpoint.model)
                 except:
                     raise ValueError('No component found %s' %
