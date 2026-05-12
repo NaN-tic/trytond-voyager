@@ -850,12 +850,14 @@ class Endpoint(Component):
         pool = Pool()
         VoyagerURI = pool.get('www.uri')
 
+        transaction = Transaction()
+
         values = {}
         uri_values = {}
         voyager_uri = None
 
         site = None
-        context = Transaction().context.get('voyager_context')
+        context = transaction.context.get('voyager_context')
         if hasattr(context, 'site'):
             site = context.site
 
@@ -892,6 +894,10 @@ class Endpoint(Component):
                             ('site', '=', site.id),
                             ('endpoint.model', '=', cls.__name__),
                             ('resource', '=', str(resource)),
+                            ['OR',
+                                ('language.code', '=', transaction.language),
+                                ('language', '=', None),
+                            ],
                         ], limit=1)
 
                         if voyager_uris:
@@ -905,6 +911,10 @@ class Endpoint(Component):
             voyager_uris = VoyagerURI.search([
                 ('site', '=', site.id),
                 ('endpoint.model', '=', cls.__name__),
+                ['OR',
+                    ('language.code', '=', transaction.language),
+                    ('language', '=', None),
+                ],
                 ], limit=1)
             if voyager_uris:
                 voyager_uri = voyager_uris[0]
