@@ -850,14 +850,12 @@ class Endpoint(Component):
         pool = Pool()
         VoyagerURI = pool.get('www.uri')
 
-        transaction = Transaction()
-
         values = {}
         uri_values = {}
         voyager_uri = None
 
         site = None
-        context = transaction.context.get('voyager_context')
+        context = Transaction().context.get('voyager_context')
         if hasattr(context, 'site'):
             site = context.site
 
@@ -894,10 +892,6 @@ class Endpoint(Component):
                             ('site', '=', site.id),
                             ('endpoint.model', '=', cls.__name__),
                             ('resource', '=', str(resource)),
-                            ['OR',
-                                ('language.code', '=', transaction.language),
-                                ('language', '=', None),
-                            ],
                         ], limit=1)
 
                         if voyager_uris:
@@ -911,10 +905,6 @@ class Endpoint(Component):
             voyager_uris = VoyagerURI.search([
                 ('site', '=', site.id),
                 ('endpoint.model', '=', cls.__name__),
-                ['OR',
-                    ('language.code', '=', transaction.language),
-                    ('language', '=', None),
-                ],
                 ], limit=1)
             if voyager_uris:
                 voyager_uri = voyager_uris[0]
@@ -923,6 +913,7 @@ class Endpoint(Component):
             values.update(site.to_url_prefix(cls, values))
 
         if voyager_uri:
+            voyager_uri = voyager_uri.canonical_uri
             parsed = urlparse(voyager_uri.uri)
             query = dict(parse_qsl(parsed.query))
             query.update(uri_values)
@@ -990,7 +981,7 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
                 ('id', '=', self.id),
             ],
             ('language.code', '=', language)])
-        return related and related[0] or None
+        return related and related[0]
 
     @classmethod
     def get_canonical_uri(cls, uris, name):
@@ -1001,8 +992,7 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
                 result[uri.id] = uri.main_uri._get_canonical_uri()
             elif uri.related_uris:
                 result[uri.id] = uri._get_canonical_uri()
-            else:
-                result[uri.id] = None
+            result.setdefault(uri.id, uri)
         return result
 
     @classmethod
