@@ -62,13 +62,14 @@ class Menu(sequence_ordered(), DeactivableMixin, ModelSQL, ModelView):
             case 'external':
                 href = self.url
             case 'internal':
-                resource = self.uri.resource
+                canonical_uri = self.uri.canonical_uri
+                resource = canonical_uri.resource
 
                 try:
-                    Component = pool.get(self.uri.endpoint.name)
+                    Component = pool.get(canonical_uri.endpoint.name)
                 except:
                     raise ValueError('No component found %s' %
-                        self.uri.endpoint.name)
+                        canonical_uri.endpoint.name)
 
                 if not resource:
                     href = Component.url()
