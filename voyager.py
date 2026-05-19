@@ -860,7 +860,7 @@ class Endpoint(Component):
                     if not voyager_uri:
                         voyager_uris = VoyagerURI.search([
                             ('site', '=', site.id),
-                            ('endpoint.model', '=', cls.__name__),
+                            ('endpoint.name', '=', cls.__name__),
                             ('resource', '=', str(resource)),
                         ], limit=1)
 
@@ -874,7 +874,7 @@ class Endpoint(Component):
         if not kwargs and site and site.route_method == 'uri':
             voyager_uris = VoyagerURI.search([
                 ('site', '=', site.id),
-                ('endpoint.model', '=', cls.__name__),
+                ('endpoint.name', '=', cls.__name__),
                 ], limit=1)
             if voyager_uris:
                 voyager_uri = voyager_uris[0]
