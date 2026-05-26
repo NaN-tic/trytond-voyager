@@ -222,11 +222,11 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
             # description attributes
             if e.code in error_handlers:
                 endpoint = error_handlers[e.code]
-                #TODO: we need to decide here what we sent to the exception
-                # defaults functions
+                # We send a query parameter with the status code to be able
+                # to use it on the error page.
                 return (None, None, None, None, None,
-                    adapter.build(endpoint.__name__, None))
-                # We cant use the url function because we dont have the
+                    adapter.build(endpoint.__name__, { 'status': e.code }))
+                # We can't use the url function because we don't have the
                 # adapter at this point
             else:
                 raise e
