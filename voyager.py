@@ -316,6 +316,8 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 language = 'en'
             context['language'] = language
 
+        # Convert from mappingproxy to dict to be able to modify it
+        context = dict(context)
         context.update(site._get_context(session, component_model, args))
         with Transaction().set_context(voyager_context=voyager_context,
                 path=request.path, **context), Transaction().set_user(user_id):
