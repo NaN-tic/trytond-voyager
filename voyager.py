@@ -1,6 +1,7 @@
 import logging
 import os
 import secrets
+from collections.abc import Mapping
 from collections import defaultdict
 from datetime import datetime, timedelta
 from xml.sax.saxutils import escape, quoteattr
@@ -13,7 +14,7 @@ from trytond.cache import Cache, freeze
 from trytond.config import config
 from trytond.model import (DeactivableMixin, ModelSQL, ModelView, fields,
     dualmethod)
-from trytond.pool import Pool
+from trytond.pool import Pool, PoolMeta
 from trytond.pyson import Bool, Eval
 from trytond.wizard import Button, StateTransition, StateView, Wizard
 from trytond.transaction import Transaction
@@ -27,6 +28,23 @@ CACHE_ENABLED = config.getboolean('voyager', 'cache_enabled', default=True)
 CACHE_TIMEOUT = config.getint('voyager', 'cache_timeout', default=60 * 60)
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_cache_value(value):
+    if isinstance(value, Mapping):
+        return {
+            k: normalize_cache_value(v)
+            for k, v in value.items()
+            }
+    if isinstance(value, tuple):
+        return tuple(normalize_cache_value(v) for v in value)
+    if isinstance(value, list):
+        return [normalize_cache_value(v) for v in value]
+    if isinstance(value, set):
+        return {normalize_cache_value(v) for v in value}
+    if isinstance(value, frozenset):
+        return frozenset(normalize_cache_value(v) for v in value)
+    return value
 
 def component(name):
     """
@@ -73,6 +91,21 @@ class CacheManager:
             cls.caches[key] = VoyagerCache('voyager.cache',
                 duration=CACHE_TIMEOUT)
         return cls.caches[key]
+
+    @classmethod
+    def clear(cls):
+        for cache in cls.caches.values():
+            cache.clear()
+
+
+class User(metaclass=PoolMeta):
+    __name__ = 'res.user'
+
+    @classmethod
+    def on_modification(cls, mode, users, field_names=None):
+        super().on_modification(mode, users, field_names=field_names)
+        if mode == 'write':
+            CacheManager.clear()
 
 
 # The reason we inherit from dict is that a VoyagerContext instance will be
@@ -316,9 +349,11 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 language = 'en'
             context['language'] = language
 
-        # Convert from mappingproxy to dict to be able to modify it
-        context = dict(context)
-        context.update(site._get_context(session, component_model, args))
+        # Convert from cache immutable structures to regular Python
+        # containers so Tryton caches can freeze the request context.
+        context = normalize_cache_value(dict(context))
+        context.update(normalize_cache_value(
+                site._get_context(session, component_model, args)))
         with Transaction().set_context(voyager_context=voyager_context,
                 path=request.path, **context), Transaction().set_user(user_id):
             # Get the component object and function
@@ -717,7 +752,7 @@ class Component(ModelView):
         use_cache = CACHE_ENABLED and self.cached and self.cache
         if use_cache:
             key = self.get_cache_key()
-            if key and self.cache.get(key):
+            if key and self.cache and self.cache.get(key):
                 self._tag = self.cache.get(key)
                 return
         self._tag = self.render()

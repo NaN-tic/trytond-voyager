@@ -16,6 +16,7 @@ def register():
         voyager.Session,
         voyager.Component,
         voyager.VoyagerURI,
+        voyager.User,
         utils.Menu,
         voyager.VoyagerUriBuilderAsk,
         voyager.VoyagerUriBuilderResult,
