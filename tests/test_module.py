@@ -2,11 +2,16 @@
 # The COPYRIGHT file at the top level of this repository contains
 # the full copyright notices and license terms.
 from datetime import datetime, timezone
-from types import SimpleNamespace
-from unittest.mock import patch
+from types import MappingProxyType, SimpleNamespace
+from unittest.mock import Mock, patch
 
-from trytond.modules.voyager.voyager import VoyagerURI
-from trytond.tests.test_tryton import ModuleTestCase, activate_module
+from trytond.cache import Cache
+from trytond.modules.voyager.voyager import (
+    CacheManager, normalize_cache_value, VoyagerURI)
+from trytond.tests.test_tryton import (
+    ModuleTestCase, activate_module, with_transaction)
+from trytond.pool import Pool
+from trytond.transaction import Transaction
 
 
 class VoyagerTestCase(ModuleTestCase):
@@ -81,5 +86,35 @@ class VoyagerTestCase(ModuleTestCase):
         self.assertIn(
             'href="https://example.com/search?q=foo&amp;lang=en"/>', xml)
         self.assertIn('<xhtml:link rel="alternate" hreflang="en"', xml)
+
+    @with_transaction()
+    def test_normalize_cache_value_keeps_context_freezable(self):
+        cache = Cache(f'voyager.cache.test.{id(self)}', duration=60)
+        context = normalize_cache_value({
+                'language': 'es',
+                'locale': MappingProxyType({
+                        'date': '%d/%m/%Y',
+                        'grouping': (3, 0),
+                        'decimal_point': ',',
+                        }),
+                })
+
+        with Transaction().set_context(**context):
+            cache.set('component', 'value')
+            self.assertEqual(cache.get('component'), 'value')
+
+    @with_transaction()
+    def test_user_modification_clears_voyager_caches(self):
+        User = Pool().get('res.user')
+        user = User(1)
+        cache = Mock()
+        caches = CacheManager.caches
+        CacheManager.caches = {('test', 1): cache}
+        try:
+            User.on_modification('write', [user], field_names=['employee'])
+        finally:
+            CacheManager.caches = caches
+
+        cache.clear.assert_called_once_with()
 
 del ModuleTestCase
