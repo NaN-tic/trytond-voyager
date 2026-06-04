@@ -3,7 +3,6 @@ from trytond.model import (DeactivableMixin, ModelSQL, ModelView, fields,
 from trytond.pyson import Eval
 from trytond.exceptions import UserError
 from trytond.i18n import gettext
-from trytond.pool import Pool
 
 
 class Menu(sequence_ordered(), DeactivableMixin, ModelSQL, ModelView):
@@ -57,31 +56,8 @@ class Menu(sequence_ordered(), DeactivableMixin, ModelSQL, ModelView):
         return self.name or ''
 
     def get_href(self):
-        pool = Pool()
-
-        href = None
         match self.type:
             case 'external':
-                href = self.url
+                return self.url
             case 'internal':
-                canonical_uri = self.uri.canonical_uri
-                resource = canonical_uri.resource
-
-                try:
-                    Component = pool.get(canonical_uri.endpoint.name)
-                except:
-                    raise ValueError('No component found %s' %
-                        canonical_uri.endpoint.name)
-
-                if not resource:
-                    href = Component.url()
-                else:
-                    resource_name = resource.__name__
-                    key = None
-                    for fieldname, field in Component._fields.items():
-                        if (isinstance(field, fields.Many2One)
-                                and field.model_name == resource_name):
-                            key = fieldname
-                            break
-                    href = Component.url(**{key: resource})
-        return href
+                return self.uri.get_href()
