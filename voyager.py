@@ -1186,7 +1186,7 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
     def get_href(self):
         pool = Pool()
 
-        canonical_uri = self.uri.canonical_uri
+        canonical_uri = self.canonical_uri
         resource = canonical_uri.resource
 
         try:
