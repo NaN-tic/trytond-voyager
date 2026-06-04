@@ -1183,9 +1183,32 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
         cls.write(list(to_deactivate.values()), {'active': False})
         cls.save(to_save)
 
+    def get_href(self):
+        pool = Pool()
+
+        canonical_uri = self.uri.canonical_uri
+        resource = canonical_uri.resource
+
+        try:
+            Component = pool.get(canonical_uri.endpoint.name)
+        except:
+            raise ValueError('No component found %s' %
+                canonical_uri.endpoint.name)
+
+        if not resource:
+            href = Component.url()
+        else:
+            resource_name = resource.__name__
+            key = None
+            for fieldname, field in Component._fields.items():
+                if (isinstance(field, fields.Many2One)
+                        and field.model_name == resource_name):
+                    key = fieldname
+                    break
+            href = Component.url(**{key: resource})
+        return href
+
 #TODO: validate unique uri per site and language
-
-
 class VoyagerUriBuilderAsk(ModelView):
     'Voyager URI Builder Ask'
     __name__ = 'www.uri.builder.ask'
