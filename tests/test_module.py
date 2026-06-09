@@ -5,7 +5,10 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from trytond.modules.voyager.voyager import VoyagerURI
+from werkzeug.datastructures import ImmutableMultiDict
+from werkzeug.exceptions import NotFound
+
+from trytond.modules.voyager.voyager import ErrorRequest, Site, VoyagerURI
 from trytond.tests.test_tryton import ModuleTestCase, activate_module
 
 
@@ -81,5 +84,52 @@ class VoyagerTestCase(ModuleTestCase):
         self.assertIn(
             'href="https://example.com/search?q=foo&amp;lang=en"/>', xml)
         self.assertIn('<xhtml:link rel="alternate" hreflang="en"', xml)
+
+    def test_error_request_keeps_original_request(self):
+        request = SimpleNamespace(
+            path='/missing',
+            method='POST',
+            args=ImmutableMultiDict([('page', '1')]),
+            form={'foo': 'bar'},
+        )
+
+        error_request = ErrorRequest(request, {'status': 404})
+
+        self.assertEqual(error_request.path, '/missing')
+        self.assertEqual(error_request.method, 'GET')
+        self.assertEqual(error_request.args.get('page'), '1')
+        self.assertEqual(error_request.args.get('status'), '404')
+        self.assertEqual(error_request.form, {'foo': 'bar'})
+
+    def test_match_request_returns_error_handler_info(self):
+        class Adapter:
+            def match(self, path, method=None):
+                raise NotFound()
+
+        class ErrorHandler:
+            __name__ = 'www.error.test'
+
+        site = SimpleNamespace(
+            route_method='endpoint',
+            get_site_info=lambda web_prefix: (
+                None, Adapter(), {}, {404: ErrorHandler}),
+        )
+
+        with patch('trytond.modules.voyager.voyager.Pool',
+                return_value=SimpleNamespace(get=lambda name: None)):
+            endpoint, args, adapter, endpoint_args, language, error = (
+                Site.match_request(
+                    site, SimpleNamespace(path='/missing', method='GET')))
+
+        self.assertIsNone(endpoint)
+        self.assertIsNone(args)
+        self.assertIsInstance(adapter, Adapter)
+        self.assertEqual(endpoint_args, {})
+        self.assertIsNone(language)
+        self.assertEqual(error, {
+                'endpoint': ErrorHandler.__name__,
+                'args': {'status': 404},
+                'status': 404,
+                })
 
 del ModuleTestCase
