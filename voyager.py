@@ -22,7 +22,6 @@ from trytond.tools import cursor_dict, grouped_slice, reduce_ids
 from werkzeug.routing import Map, Rule
 from werkzeug.wrappers import Response
 from werkzeug.exceptions import HTTPException
-from werkzeug.utils import redirect
 
 CACHE_ENABLED = config.getboolean('voyager', 'cache_enabled', default=True)
 CACHE_TIMEOUT = config.getint('voyager', 'cache_timeout', default=60 * 60)
@@ -124,6 +123,18 @@ class VoyagerContext(dict):
         self.adapter = adapter
         self.endpoint_args = endpoint_args
         self.web_prefix = web_prefix
+
+
+class ErrorRequest:
+    def __init__(self, request, extra_args=None):
+        self._request = request
+        self.method = 'GET'
+        self.args = request.args.copy()
+        for key, value in (extra_args or {}).items():
+            self.args[key] = str(value)
+
+    def __getattr__(self, name):
+        return getattr(self._request, name)
 
 
 class Site(DeactivableMixin, ModelSQL, ModelView):
@@ -250,17 +261,16 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 else:
                     endpoint, args = adapter.match(request.path)
         except HTTPException as e:
-            # HTTPException is the mixin used for all the http erros from
+            # HTTPException is the mixin used for all the http errors from
             # werkzeug, in the base class we have always the code, name and
             # description attributes
             if e.code in error_handlers:
                 endpoint = error_handlers[e.code]
-                # We send a query parameter with the status code to be able
-                # to use it on the error page.
-                return (None, None, None, None, None,
-                    adapter.build(endpoint.__name__, { 'status': e.code }))
-                # We can't use the url function because we don't have the
-                # adapter at this point
+                return (None, None, adapter, endpoint_args, language, {
+                        'endpoint': endpoint.__name__,
+                        'args': {'status': e.code},
+                        'status': e.code,
+                        })
             else:
                 raise e
         return endpoint, args, adapter, endpoint_args, language, None
@@ -289,12 +299,14 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
 
         (endpoint, args, adapter, endpoint_args, language,
             error) = site.match_request(request, web_prefix)
+        request_to_render = request
+        if error:
+            endpoint = error['endpoint']
+            args = error.get('args', {})
+            request_to_render = ErrorRequest(request, args)
 
         if not language:
             language = Transaction().context.get('language')
-
-        if error:
-            return redirect(error)
 
         component_model = endpoint.split('/')[0]
         component_function = None
@@ -313,7 +325,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         except:
             raise ValueError('No component found %s' % component_model)
 
-        if request.method == 'POST':
+        if request_to_render.method == 'POST':
             # In case we have a post method, use the request form as args. This
             # means that we have a componet for each form and the form and
             # the componet will need to have the same number of fields.
@@ -321,18 +333,18 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
             # forms values to the existent args dictionary, if we dont have any
             # args, replace the original args with the request form values.
             if args:
-                for request_key in dict(request.form):
-                    args[request_key] = request.form[request_key]
+                for request_key in dict(request_to_render.form):
+                    args[request_key] = request_to_render.form[request_key]
             else:
-                args = request.form
+                args = request_to_render.form
 
         # Check the session
         with Transaction().set_context(site=site):
-            session = Session().get(request)
+            session = Session().get(request_to_render)
 
-        cache = site.get_cache(session, request)
+        cache = site.get_cache(session, request_to_render)
         voyager_context = VoyagerContext(site=site, session=session,
-            cache=cache, request=request, adapter=adapter,
+            cache=cache, request=request_to_render, adapter=adapter,
             endpoint_args=endpoint_args, web_prefix=web_prefix)
         system_user_id = session.system_user and session.system_user.id
         user_id = system_user_id or user_id
@@ -355,7 +367,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         context.update(normalize_cache_value(
                 site._get_context(session, component_model, args)))
         with Transaction().set_context(voyager_context=voyager_context,
-                path=request.path, **context), Transaction().set_user(user_id):
+                path=request_to_render.path, **context), Transaction().set_user(user_id):
             # Get the component object and function
             try:
                 Component = pool.get(component_model)
@@ -435,6 +447,8 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 # https://github.com/Knio/dominate/issues/193
                 response = response.render().replace('hx_', 'hx-')
                 response = Response(response, content_type='text/html')
+            if response and error and error.get('status'):
+                response.status_code = error['status']
 
             # Add all the htmx triggers to the header of the response
             if Trigger.get_triggers():

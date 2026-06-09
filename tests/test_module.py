@@ -7,11 +7,13 @@ from unittest.mock import Mock, patch
 
 from trytond.cache import Cache
 from trytond.modules.voyager.voyager import (
-    CacheManager, normalize_cache_value, VoyagerURI)
+    CacheManager, normalize_cache_value, VoyagerURI, ErrorRequest, Site)
 from trytond.tests.test_tryton import (
     ModuleTestCase, activate_module, with_transaction)
 from trytond.pool import Pool
 from trytond.transaction import Transaction
+from werkzeug.datastructures import ImmutableMultiDict
+from werkzeug.exceptions import NotFound
 
 
 class VoyagerTestCase(ModuleTestCase):
@@ -116,5 +118,52 @@ class VoyagerTestCase(ModuleTestCase):
             CacheManager.caches = caches
 
         cache.clear.assert_called_once_with()
+
+    def test_error_request_keeps_original_request(self):
+        request = SimpleNamespace(
+            path='/missing',
+            method='POST',
+            args=ImmutableMultiDict([('page', '1')]),
+            form={'foo': 'bar'},
+        )
+
+        error_request = ErrorRequest(request, {'status': 404})
+
+        self.assertEqual(error_request.path, '/missing')
+        self.assertEqual(error_request.method, 'GET')
+        self.assertEqual(error_request.args.get('page'), '1')
+        self.assertEqual(error_request.args.get('status'), '404')
+        self.assertEqual(error_request.form, {'foo': 'bar'})
+
+    def test_match_request_returns_error_handler_info(self):
+        class Adapter:
+            def match(self, path, method=None):
+                raise NotFound()
+
+        class ErrorHandler:
+            __name__ = 'www.error.test'
+
+        site = SimpleNamespace(
+            route_method='endpoint',
+            get_site_info=lambda web_prefix: (
+                None, Adapter(), {}, {404: ErrorHandler}),
+        )
+
+        with patch('trytond.modules.voyager.voyager.Pool',
+                return_value=SimpleNamespace(get=lambda name: None)):
+            endpoint, args, adapter, endpoint_args, language, error = (
+                Site.match_request(
+                    site, SimpleNamespace(path='/missing', method='GET')))
+
+        self.assertIsNone(endpoint)
+        self.assertIsNone(args)
+        self.assertIsInstance(adapter, Adapter)
+        self.assertEqual(endpoint_args, {})
+        self.assertIsNone(language)
+        self.assertEqual(error, {
+                'endpoint': ErrorHandler.__name__,
+                'args': {'status': 404},
+                'status': 404,
+                })
 
 del ModuleTestCase
