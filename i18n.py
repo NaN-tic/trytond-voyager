@@ -1,8 +1,8 @@
 from babel.messages import extract
+from trytond import backend
 from trytond.pool import Pool, PoolMeta
 from trytond.transaction import Transaction
 from trytond.modules import get_module_info
-from trytond.tools import cursor_dict
 
 INTERNAL_LANG = 'en'
 
@@ -37,7 +37,7 @@ class TranslationSet(metaclass=PoolMeta):
         Module = pool.get('ir.module')
         Translation = pool.get('ir.translation')
 
-        cursor = Transaction().connection.cursor()
+        cursor = Transaction().connection.cursor(row_factory=backend.dict_row)
 
         translation = Translation.__table__()
         for module in Module.search([('state', '=', 'activated')]):
@@ -49,7 +49,7 @@ class TranslationSet(metaclass=PoolMeta):
                     where=(translation.lang == INTERNAL_LANG)
                     & (translation.type == 'voyager')
                     & (translation.module == module.name)))
-            existing = {x['src']: x for x in cursor_dict(cursor)}
+            existing = {x['src']: x for x in cursor}
 
             # TODO: Add 'voyager' translations from other modules this module
             # depends on

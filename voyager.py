@@ -10,6 +10,7 @@ import jinja2
 import markdown
 from dominate.tags import div, p
 from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
+from trytond import backend
 from trytond.cache import Cache, freeze
 from trytond.config import config
 from trytond.model import (DeactivableMixin, ModelSQL, ModelView, fields,
@@ -18,7 +19,7 @@ from trytond.pool import Pool, PoolMeta
 from trytond.pyson import Bool, Eval
 from trytond.wizard import Button, StateTransition, StateView, Wizard
 from trytond.transaction import Transaction
-from trytond.tools import cursor_dict, grouped_slice, reduce_ids
+from trytond.tools import grouped_slice, reduce_ids
 from werkzeug.routing import Map, Rule
 from werkzeug.wrappers import Response
 from werkzeug.exceptions import HTTPException
@@ -1035,7 +1036,7 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
     def _sitemap_rows(cls, site):
         pool = Pool()
         Lang = pool.get('ir.lang')
-        cursor = Transaction().connection.cursor()
+        cursor = Transaction().connection.cursor(row_factory=backend.dict_row)
 
         uri = cls.__table__()
         language = Lang.__table__()
@@ -1054,7 +1055,7 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
                 & (uri.main_uri == None),
                 order_by=[uri.uri.asc, uri.id.asc]))
         cursor.execute(*query)
-        return list(cursor_dict(cursor))
+        return list(cursor)
 
     @classmethod
     def sitemap(cls, site):
@@ -1103,7 +1104,7 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
         resource_write_dates = {}
         if resources_by_model:
             pool = Pool()
-            cursor = Transaction().connection.cursor()
+            cursor = Transaction().connection.cursor(row_factory=backend.dict_row)
             for model_name, ids in resources_by_model.items():
                 try:
                     Model = pool.get(model_name)
@@ -1118,7 +1119,7 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
                         table.write_date.as_('write_date'),
                         where=reduce_ids(table.id, list(sub_ids)))
                     cursor.execute(*query)
-                    for row in cursor_dict(cursor):
+                    for row in cursor:
                         resource_write_dates[f'{model_name},{row["id"]}'] = (
                             row['write_date'])
 
