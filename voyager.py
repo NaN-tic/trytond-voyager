@@ -965,7 +965,7 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
                 ('id', '=', self.id),
             ],
             ('language.code', '=', language)])
-        return related and related[0]
+        return related[0] if related else None
 
     @classmethod
     def get_canonical_uri(cls, uris, name):
@@ -973,10 +973,12 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
 
         for uri in uris:
             if uri.main_uri:
-                result[uri.id] = uri.main_uri._get_canonical_uri()
+                canonical_found = uri.main_uri._get_canonical_uri()
             elif uri.related_uris:
-                result[uri.id] = uri._get_canonical_uri()
-            result.setdefault(uri.id, uri)
+                canonical_found = uri._get_canonical_uri()
+            else:
+                canonical_found = None
+            result[uri.id] = canonical_found or uri
         return result
 
     @classmethod
