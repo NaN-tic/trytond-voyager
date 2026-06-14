@@ -482,7 +482,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         error_handlers = {}
         for key, Model in pool.iterobject():
             if issubclass(Model, Endpoint):
-                if not Model._type:
+                if Model._type is None:
                     raise KeyError('Missing type in model %s' % Model.__name__)
 
                 types = Model._type
