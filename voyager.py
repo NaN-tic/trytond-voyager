@@ -790,30 +790,6 @@ class Component(ModelView):
         """
         return []
 
-    def url(self, endpoint=None, **kwargs):
-        """
-        Given an endpoint and a set of arguments, render and return an url.
-        """
-        adapter = self.adapter()
-        endpoint_args = self.endpoint_args()
-
-        #TODO: set context here to set language in url
-        if not endpoint:
-            endpoint = self.__class__.__name__
-        else:
-            endpoint = f'{self.__class__.__name__}/{endpoint}'
-
-        # Always expect the elment here
-        for arg in endpoint_args[endpoint]:
-            value = getattr(self, arg)
-            if hasattr(value, '__name__'):
-                if hasattr(value, 'to_request'):
-                    value = value.to_request(self.site, self.__name__)
-                else:
-                    value = value.id
-            kwargs[arg] = value
-        return adapter.build(endpoint, kwargs)
-
 
 class Trigger():
     def __init__(self, name=None):
