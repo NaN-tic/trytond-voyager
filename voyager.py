@@ -937,6 +937,7 @@ class VoyagerURL():
 class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
     'Voyager URI'
     __name__ = 'www.uri'
+    _rec_name = 'uri'
 
     site = fields.Many2One('www.site', 'Site', required=True)
     uri = fields.Char('URI', required=True)
