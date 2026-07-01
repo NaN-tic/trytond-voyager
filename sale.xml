@@ -5,5 +5,10 @@
             <field name="inherit" ref="voyager.site_form"/>
             <field name="name">site_form_sale</field>
         </record>
+        <record model="ir.ui.view" id="sale_view_form">
+            <field name="model">sale.sale</field>
+            <field name="inherit" ref="sale.sale_view_form"/>
+            <field name="name">sale_view_form</field>
+        </record>
     </data>
 </tryton>
