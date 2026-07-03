@@ -5,9 +5,10 @@ from collections.abc import Mapping
 from collections import defaultdict
 from datetime import datetime, timedelta
 from xml.sax.saxutils import escape, quoteattr
-
 import jinja2
 import markdown
+from sql import Cast, Literal
+from sql.functions import Position, Substring
 from dominate.tags import div, p
 from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 from trytond.cache import Cache, freeze
@@ -152,6 +153,9 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         help="The frequency to update the session lifetime in seconds")
     # Head arguments
     metadescription = fields.Char('Metadescription')
+    seo_title_prefix = fields.Char('SEO Title Prefix')
+    seo_title_suffix = fields.Char('SEO Title Suffix')
+    seo_title_separator = fields.Char('SEO Title Separator')
     keywords = fields.Char('Keywords', help="Comma-separated list of keywords")
     metatitle = fields.Char('Metatitle')
     canonical = fields.Char('Canonical')
@@ -1013,12 +1017,18 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
     def _sitemap_rows(cls, site):
         pool = Pool()
         Lang = pool.get('ir.lang')
+        Page = pool.get('www.page')
         cursor = Transaction().connection.cursor()
 
         uri = cls.__table__()
         language = Lang.__table__()
+        page = Page.__table__()
+        resource_id = Cast(
+            Substring(uri.resource, Position(',', uri.resource) + Literal(1)),
+            'INTEGER')
         query = (uri
             .join(language, type_='LEFT', condition=uri.language == language.id)
+            .join(page, condition=resource_id == page.id)
             .select(
                 uri.id.as_('id'),
                 uri.uri.as_('uri'),
@@ -1029,7 +1039,8 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
                 where=(uri.site == site.id)
                 & (uri.active == True)
                 & (uri.show_sitemap == True)
-                & (uri.main_uri == None),
+                & uri.resource.like('www.page,%')
+                & (page.state == 'published'),
                 order_by=[uri.uri.asc, uri.id.asc]))
         cursor.execute(*query)
         return list(cursor_dict(cursor))
@@ -1176,29 +1187,21 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
         cls.save(to_save)
 
     def get_href(self):
-        pool = Pool()
-
-        canonical_uri = self.canonical_uri
-        resource = canonical_uri.resource
-
+        uri = str(self.uri or '').strip()
+        if not uri:
+            return ''
+        if uri.startswith(('http://', 'https://', '//')):
+            return uri
+        parsed = urlparse(uri)
+        path = parsed.path or uri
+        if not path.startswith('/'):
+            path = f'/{path}'
+        href = urlunparse(parsed._replace(path=path))
         try:
-            Component = pool.get(canonical_uri.endpoint.name)
-        except:
-            raise ValueError('No component found %s' %
-                canonical_uri.endpoint.name)
-
-        if not resource:
-            href = Component.url()
-        else:
-            resource_name = resource.__name__
-            key = None
-            for fieldname, field in Component._fields.items():
-                if (isinstance(field, fields.Many2One)
-                        and field.model_name == resource_name):
-                    key = fieldname
-                    break
-            href = Component.url(**{key: resource})
-        return href
+            Component = Pool().get(self.endpoint.name)
+        except Exception:
+            return href
+        return f'{Component.web_prefix()}{href}'
 
 #TODO: validate unique uri per site and language
 class VoyagerUriBuilderAsk(ModelView):
