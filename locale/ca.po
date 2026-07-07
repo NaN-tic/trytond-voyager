@@ -238,10 +238,6 @@ msgctxt "model:www.uri.builder.result,name:"
 msgid "Voyager URI Builder Result"
 msgstr "Resultat del creador d'URI de Voyager"
 
-msgctxt "selection:ir.translation,type:"
-msgid "Voyager"
-msgstr "Voyager"
-
 msgctxt "selection:www.menu,type:"
 msgid "External"
 msgstr "Extern"
