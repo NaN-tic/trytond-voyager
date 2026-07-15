@@ -536,7 +536,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
 
         try:
             text = markdown.markdown(text, output_format='xhtml',
-                extensions=['tables'])
+                extensions=['tables', 'toc', 'attr_list'])
         except Exception as e:
             print(f'Error: {e}')
             return ''
