@@ -151,9 +151,6 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         help="The frequency to update the session lifetime in seconds")
     # Head arguments
     metadescription = fields.Char('Metadescription')
-    seo_title_prefix = fields.Char('SEO Title Prefix')
-    seo_title_suffix = fields.Char('SEO Title Suffix')
-    seo_title_separator = fields.Char('SEO Title Separator')
     keywords = fields.Char('Keywords', help="Comma-separated list of keywords")
     metatitle = fields.Char('Metatitle')
     canonical = fields.Char('Canonical')
@@ -1177,10 +1174,6 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
 
     def get_href(self):
         pool = Pool()
-        uri = str(self.uri or '').strip()
-        if not uri:
-            return ''
-
         canonical_uri = self.canonical_uri
         resource = canonical_uri.resource
         try:
