@@ -5,7 +5,6 @@ from collections.abc import Mapping
 from collections import defaultdict
 from datetime import datetime, timedelta
 from xml.sax.saxutils import escape, quoteattr
-
 import jinja2
 import markdown
 from dominate.tags import div, p
@@ -1030,8 +1029,7 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
                 language.code.as_('language_code'),
                 where=(uri.site == site.id)
                 & (uri.active == True)
-                & (uri.show_sitemap == True)
-                & (uri.main_uri == None),
+                & (uri.show_sitemap == True),
                 order_by=[uri.uri.asc, uri.id.asc]))
         cursor.execute(*query)
         return list(cursor)
@@ -1179,28 +1177,25 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
 
     def get_href(self):
         pool = Pool()
-
         canonical_uri = self.canonical_uri
         resource = canonical_uri.resource
-
         try:
             Component = pool.get(canonical_uri.endpoint.name)
-        except:
+        except KeyError:
             raise ValueError('No component found %s' %
                 canonical_uri.endpoint.name)
 
         if not resource:
-            href = Component.url()
-        else:
-            resource_name = resource.__name__
-            key = None
-            for fieldname, field in Component._fields.items():
-                if (isinstance(field, fields.Many2One)
-                        and field.model_name == resource_name):
-                    key = fieldname
-                    break
-            href = Component.url(**{key: resource})
-        return href
+            return Component.url()
+
+        resource_name = resource.__name__
+        key = None
+        for fieldname, field in Component._fields.items():
+            if (isinstance(field, fields.Many2One)
+                    and field.model_name == resource_name):
+                key = fieldname
+                break
+        return Component.url(**{key: resource})
 
 #TODO: validate unique uri per site and language
 class VoyagerUriBuilderAsk(ModelView):
