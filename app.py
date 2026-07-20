@@ -1,6 +1,6 @@
 import click
 from werkzeug import Request
-from trytond.config import config
+import trytond.config as config
 from trytond.pool import Pool
 from trytond.transaction import Transaction
 from trytond.modules.voyager import voyager
