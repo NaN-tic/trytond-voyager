@@ -12,7 +12,7 @@ from proteus import config as pconfig
 from trytond import wsgi
 from trytond.tests.test_tryton import drop_create, drop_db
 from werkzeug.serving import make_server
-from trytond.config import config
+import trytond.config as config
 from trytond.transaction import Transaction
 from trytond.backend import name
 

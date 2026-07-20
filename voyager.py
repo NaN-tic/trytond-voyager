@@ -11,7 +11,7 @@ import markdown
 from dominate.tags import div, p
 from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 from trytond.cache import Cache, freeze
-from trytond.config import config
+import trytond.config as config
 from trytond.model import (DeactivableMixin, ModelSQL, ModelView, fields,
     dualmethod)
 from trytond.pool import Pool, PoolMeta
