@@ -915,7 +915,7 @@ class Endpoint(Component):
             parsed = urlparse(voyager_uri.uri)
             query = dict(parse_qsl(parsed.query))
             query.update(uri_values)
-            return f'{cls.web_prefix()}{urlunparse(parsed._replace(query=urlencode(query)))}'
+            return f'{cls.web_prefix() or ""}{urlunparse(parsed._replace(query=urlencode(query)))}'
 
         #Minimum required to handle the url building
         adapter = cls.adapter()
