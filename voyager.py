@@ -366,13 +366,14 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
             context = User._get_preferences(user, context_only=True)
             if cache:
                 cache.set('user-preferences-%d' % user_id, context)
-            if not language:
-                language = 'en'
-            context['language'] = language
 
         # Convert from cache immutable structures to regular Python
         # containers so Tryton caches can freeze the request context.
         context = normalize_cache_value(dict(context))
+        if language:
+            context['language'] = language
+        elif not context.get('language'):
+            context['language'] = 'en'
         context.update(normalize_cache_value(
                 site._get_context(session, component_model, args)))
         with Transaction().set_context(voyager_context=voyager_context,
