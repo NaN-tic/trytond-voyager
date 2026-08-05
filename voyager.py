@@ -59,13 +59,14 @@ def component(name):
 
 def render_component(name, lazy=False, **kwargs):
     """
-    Given a component __name___, return the render, if we set the lazy flag to
-    true, we use the lazy render (render_lazy component method) instead of try
-    render the component
+    Given a component name, return its render. If ``lazy`` is true, use the
+    lazy render instead. A string value is used as the HTMX trigger.
     """
     pool = Pool()
     Component = pool.get(name)
     component = Component(render=False)
+    if isinstance(lazy, str):
+        return component.render_lazy(hx_trigger=lazy)
     if lazy:
         return component.render_lazy()
     return component.tag()
@@ -845,11 +846,11 @@ class Endpoint(Component):
         '''
         return p('Loading...')
 
-    def render_lazy(self):
+    def render_lazy(self, hx_trigger='load'):
         '''
         The loading div that we show when the component is loading.
         '''
-        loading_div = div(hx_get=self.url(), hx_trigger='load')
+        loading_div = div(hx_get=self.url(), hx_trigger=hx_trigger)
         with loading_div:
             self.lazy_content()
         return loading_div

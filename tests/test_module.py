@@ -7,7 +7,8 @@ from unittest.mock import Mock, patch
 
 from trytond.cache import Cache
 from trytond.modules.voyager.voyager import (
-    CacheManager, normalize_cache_value, VoyagerURI, ErrorRequest, Site)
+    CacheManager, normalize_cache_value, VoyagerURI, ErrorRequest, Site,
+    Endpoint, render_component)
 from trytond.tests.test_tryton import (
     ModuleTestCase, activate_module, with_transaction)
 from trytond.pool import Pool
@@ -172,5 +173,33 @@ class VoyagerTestCase(ModuleTestCase):
         site = Site()
 
         self.assertTrue(site.check_request_uri(None))
+
+    def test_render_component_lazy_trigger(self):
+        component = Mock()
+        Component = Mock(return_value=component)
+        pool = Mock(get=Mock(return_value=Component))
+
+        with patch('trytond.modules.voyager.voyager.Pool', return_value=pool):
+            render_component('www.component', lazy=True)
+
+        component.render_lazy.assert_called_once_with()
+        component.render_lazy.reset_mock()
+
+        with patch('trytond.modules.voyager.voyager.Pool', return_value=pool):
+            render_component('www.component', lazy='revealed')
+
+        component.render_lazy.assert_called_once_with(hx_trigger='revealed')
+
+    def test_render_lazy_uses_trigger(self):
+        endpoint = SimpleNamespace(
+            url=lambda: '/component',
+            lazy_content=lambda: None,
+        )
+
+        default_tag = Endpoint.render_lazy(endpoint)
+        tag = Endpoint.render_lazy(endpoint, hx_trigger='revealed')
+
+        self.assertIn('hx-trigger="load"', str(default_tag))
+        self.assertIn('hx-trigger="revealed"', str(tag))
 
 del ModuleTestCase
