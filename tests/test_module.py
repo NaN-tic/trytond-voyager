@@ -166,4 +166,11 @@ class VoyagerTestCase(ModuleTestCase):
                 'status': 404,
                 })
 
+    @with_transaction()
+    def test_check_request_uri(self):
+        Site = Pool().get('www.site')
+        site = Site()
+
+        self.assertTrue(site.check_request_uri(None))
+
 del ModuleTestCase

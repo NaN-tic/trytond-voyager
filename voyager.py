@@ -203,6 +203,11 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         '''
         return {}
 
+    def check_request_uri(self, voyager_uri, web_prefix=None):
+        '''
+        Return whether the URI can be used to match the request.
+        '''
+        return True
 
     def match_request(self, request, web_prefix=None):
         '''
@@ -230,6 +235,10 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
 
                 if voyager_uri:
                     voyager_uri = voyager_uri[0]
+                    if not self.check_request_uri(voyager_uri, web_prefix):
+                        voyager_uri = None
+
+                if voyager_uri:
                     endpoint = voyager_uri.endpoint.name
                     resource = voyager_uri.resource
                     resource_model = getattr(resource, '__name__', None)
