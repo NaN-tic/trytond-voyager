@@ -199,7 +199,7 @@ class VoyagerTestCase(ModuleTestCase):
         default_tag = Endpoint.render_lazy(endpoint)
         tag = Endpoint.render_lazy(endpoint, hx_trigger='revealed')
 
-        self.assertIn('hx-trigger="load"', str(default_tag))
-        self.assertIn('hx-trigger="revealed"', str(tag))
+        self.assertIn('hx_trigger="load"', str(default_tag))
+        self.assertIn('hx_trigger="revealed"', str(tag))
 
 del ModuleTestCase
