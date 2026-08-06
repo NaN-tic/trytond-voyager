@@ -7,7 +7,8 @@ from datetime import datetime, timedelta
 from xml.sax.saxutils import escape, quoteattr
 import jinja2
 import markdown
-from dominate.tags import div, p
+from dominate.tags import div
+from dominate.util import raw as html_raw
 from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 from trytond import backend
 from trytond.cache import Cache, freeze
@@ -844,7 +845,27 @@ class Endpoint(Component):
         '''
         The alternative content to show while the component is loading
         '''
-        return p('Loading...')
+        loading = div(
+            role='status',
+            style=(
+                'display:flex;align-items:center;justify-content:center;'
+                'width:100%;height:100%;overflow:hidden;'),
+            **{'aria-label': 'Loading'})
+        with loading:
+            html_raw('''<svg xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 50 50" preserveAspectRatio="xMidYMid meet"
+                aria-hidden="true" focusable="false"
+                style="display:block;width:3rem;height:3rem;max-width:100%;
+                    max-height:100%;color:currentColor">
+                <circle cx="25" cy="25" r="20" fill="none"
+                    stroke="currentColor" stroke-width="5"
+                    stroke-linecap="round" stroke-dasharray="70 110">
+                    <animateTransform attributeName="transform" type="rotate"
+                        from="0 25 25" to="360 25 25" dur="0.8s"
+                        repeatCount="indefinite"/>
+                </circle>
+            </svg>''')
+        return loading
 
     def render_lazy(self, hx_trigger='load'):
         '''
