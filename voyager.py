@@ -871,7 +871,18 @@ class Endpoint(Component):
         '''
         The loading div that we show when the component is loading.
         '''
-        loading_div = div(hx_get=self.url(), hx_trigger=hx_trigger)
+        fields_ = getattr(self, '_fields', None)
+        if fields_ is None:
+            url = self.url()
+        else:
+            values = {
+                name: getattr(self, name)
+                for name in fields_
+                if getattr(self, name) is not None
+                }
+            url = type(self).url(**values)
+        loading_div = div(
+            hx_get=url, hx_trigger=hx_trigger)
         with loading_div:
             self.lazy_content()
         return loading_div
