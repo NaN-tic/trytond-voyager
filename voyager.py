@@ -356,8 +356,20 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         voyager_context = VoyagerContext(site=site, session=session,
             cache=cache, request=request_to_render, adapter=adapter,
             endpoint_args=endpoint_args, web_prefix=web_prefix)
+        route_user_id = user_id
         system_user_id = session.system_user and session.system_user.id
-        user_id = system_user_id or user_id
+        user_id = system_user_id or route_user_id
+        if not User.search([('id', '=', user_id)], limit=1):
+            if system_user_id and route_user_id:
+                logger.warning(
+                    "Session %s references missing system user %s; "
+                    "falling back to voyager user %s",
+                    session.id, system_user_id, route_user_id)
+                user_id = route_user_id
+            if not User.search([('id', '=', user_id)], limit=1):
+                raise ValueError(
+                    'No valid voyager user configured for site %s'
+                    % site.rec_name)
         if cache:
             context = cache.get('user-preferences-%d' % user_id)
         else:
