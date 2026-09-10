@@ -1,17 +1,20 @@
-import click
+import logging
+import os
 import time
-from werkzeug import Request
-from werkzeug.exceptions import NotFound
-from trytond import backend
+
+import click
 import trytond.config as config
+from trytond import backend
+from trytond.modules.voyager import voyager
 from trytond.pool import Pool
 from trytond.transaction import Transaction, TransactionError
-from trytond.modules.voyager import voyager
-
-import os
+from trytond.worker import run_task
+from werkzeug import Request
+from werkzeug.exceptions import NotFound
 from werkzeug.middleware.shared_data import SharedDataMiddleware
 
 MODULES_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+logger = logging.getLogger(__name__)
 
 @click.group()
 def main():
@@ -37,6 +40,7 @@ class VoyagerWSGI(object):
     def dispatch_request(self, request):
         # TODO: Would be great if we found a way to define which transactions
         # are readonly and which are not
+        # FIXME: Same code seen on @with_transaction
         retry = config.getint('database', 'retry')
         count = 0
         transaction_extras = {}
@@ -48,20 +52,24 @@ class VoyagerWSGI(object):
                 try:
                     response = self.Site.dispatch(
                         self.site_type, self.site_id, request, self.user_id)
-                    # Commit before returning so commit conflicts also retry.
-                    transaction.commit()
-                except TransactionError as exception:
+                except TransactionError as e:
                     transaction.rollback()
                     transaction.tasks.clear()
-                    exception.fix(transaction_extras)
+                    e.fix(transaction_extras)
                     continue
                 except backend.DatabaseOperationalError:
-                    transaction.rollback()
-                    transaction.tasks.clear()
                     if count < retry:
+                        transaction.rollback()
+                        transaction.tasks.clear()
                         count += 1
+                        logger.debug("Retry: %i", count)
                         continue
                     raise
+                # Need to commit to unlock SQLite database
+                transaction.commit()
+            while transaction.tasks:
+                task_id = transaction.tasks.pop()
+                run_task(self.pool, task_id)
             return response
 
     def wsgi_app(self, environ, start_response):
