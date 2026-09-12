@@ -5,6 +5,7 @@ import logging
 from datetime import datetime
 from functools import wraps
 from secrets import token_hex
+from unittest.mock import patch
 
 from playwright.sync_api import Page, sync_playwright
 from proteus import Model, Wizard
@@ -61,7 +62,10 @@ def activate_modules(modules, database_name):
         modules = [modules]
     drop_create(name=database_name)
 
-    cfg = pconfig.set_trytond(database=database_name)
+    # Proteus updates TRYTOND_DATABASE_URI when selecting a database. Keep
+    # the temporary web database out of subsequent scenarios' configuration.
+    with patch.dict(os.environ):
+        cfg = pconfig.set_trytond(database=database_name)
     Module = Model.get('ir.module', config=cfg)
     records = Module.find([
         ('name', 'in', modules),
