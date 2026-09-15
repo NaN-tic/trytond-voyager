@@ -30,6 +30,22 @@ CACHE_TIMEOUT = config.getint('voyager', 'cache_timeout', default=60 * 60)
 logger = logging.getLogger(__name__)
 
 
+def _site_absolute_url(site, path):
+    path = path or '/'
+    if not path.startswith('/'):
+        path = f'/{path}'
+    context = Transaction().context or {}
+    voyager_context = context.get('voyager_context')
+    web_prefix = getattr(voyager_context, 'web_prefix', None)
+    if web_prefix:
+        web_prefix = '/' + web_prefix.strip('/')
+        if path != web_prefix and not path.startswith(f'{web_prefix}/'):
+            path = f'{web_prefix}{path}'
+    base = (getattr(site, 'url', '') or '').strip().rstrip('/')
+    if base and '://' not in base:
+        base = f'http://{base}'
+    return f'{base}{path}' if base else path
+
 def normalize_cache_value(value):
     if isinstance(value, Mapping):
         return {
@@ -1083,13 +1099,7 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
             return []
 
         def full_url(path):
-            path = path or "/"
-            if not path.startswith("/"):
-                path = f"/{path}"
-            base = (site.url or "").rstrip("/")
-            if base:
-                return f"{base}{path}"
-            return path
+            return _site_absolute_url(site, path)
 
         def format_lastmod(value):
             if not value:
