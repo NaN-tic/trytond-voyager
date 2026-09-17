@@ -4,6 +4,7 @@ this repository contains the full copyright notices and license terms. -->
 <tree>
     <field name="site"/>
     <field name="uri" expand="2"/>
+    <field name="url" widget="url"/>
     <field name="resource"/>
     <field name="endpoint"/>
     <field name="language" expand="1"/>

@@ -999,6 +999,7 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
 
     site = fields.Many2One('www.site', 'Site', required=True)
     uri = fields.Char('URI', required=True)
+    url = fields.Function(fields.Char('URL'), 'get_url')
     main_uri = fields.Many2One(
         'www.uri', 'Main URI',
         domain=[
@@ -1028,6 +1029,9 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
 
     def get_rec_name(self, name):
         return self.uri or ''
+
+    def get_url(self, name):
+        return _site_absolute_url(self.site, self.uri)
 
     def _get_canonical_uri(self):
         URI = self.__class__

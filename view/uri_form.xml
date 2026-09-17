@@ -19,6 +19,8 @@ this repository contains the full copyright notices and license terms. -->
     <newline/>
     <label name="uri"/>
     <field name="uri" colspan="3"/>
+    <label name="url"/>
+    <field name="url" colspan="3" widget="url"/>
     <label name="main_uri"/>
     <field name="main_uri" colspan="3"/>
     <label name="canonical_uri"/>
