@@ -303,6 +303,10 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
         return endpoint, args, adapter, endpoint_args, language, None
 
     @classmethod
+    def set_session_cookie(cls, response, session):
+        response.set_cookie('session_id', session.session_id)
+
+    @classmethod
     def dispatch(cls, site_type, site_id, request, user_id=None,
             web_prefix=None):
         pool = Pool()
@@ -483,7 +487,7 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 response.headers['HX-Trigger'] = ', '.join(
                     list(Trigger.get_triggers()))
             if response:
-                response.set_cookie('session_id', session.session_id)
+                cls.set_session_cookie(response, session)
             return response
 
     def template_context(self):
