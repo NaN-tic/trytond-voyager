@@ -44,6 +44,11 @@ class VoyagerWSGI(object):
         return response(environ, start_response)
 
     def __call__(self, environ, start_response):
+        # WSGI paths are already URL-decoded. Strip NUL bytes before static
+        # file handling and URI lookups (PostgreSQL text cannot contain them).
+        for key in ('PATH_INFO', 'SCRIPT_NAME'):
+            if key in environ:
+                environ[key] = environ[key].replace('\x00', '')
         return self.wsgi_app(environ, start_response)
 
 
