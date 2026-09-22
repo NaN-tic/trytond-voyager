@@ -399,6 +399,10 @@ class Site(DeactivableMixin, ModelSQL, ModelView):
                 site._get_context(session, component_model, args)))
         with Transaction().set_context(voyager_context=voyager_context,
                 path=request_to_render.path, **context), Transaction().set_user(user_id):
+            # Records retain their creation context, including language and
+            # user. Reload the site so its relations use the request context.
+            site = cls(site.id)
+            voyager_context.site = site
             # Get the component object and function
             try:
                 Component = pool.get(component_model)
