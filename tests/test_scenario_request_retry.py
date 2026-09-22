@@ -72,9 +72,10 @@ class TestRequestRetry(unittest.TestCase):
 
                 with patch.object(app.Site, 'dispatch', side_effect=dispatch), \
                         patch.object(Transaction, 'commit', commit), \
-                        patch('trytond.modules.voyager.app.config.getint',
-                            return_value=2), \
+                        patch('trytond.modules.voyager.app.config') as app_config, \
                         patch('trytond.modules.voyager.app.time.sleep'):
+                    # Keep Tryton's shared cache configuration unchanged.
+                    app_config.getint.return_value = 2
                     if failure_stage == 'persistent':
                         with self.assertRaises(backend.DatabaseOperationalError):
                             client.post('/save', data={'name': 'Updated'})
