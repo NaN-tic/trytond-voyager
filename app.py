@@ -1,8 +1,11 @@
 import click
+import time
 from werkzeug import Request
+from werkzeug.exceptions import NotFound
+from trytond import backend
 import trytond.config as config
 from trytond.pool import Pool
-from trytond.transaction import Transaction
+from trytond.transaction import Transaction, TransactionError
 from trytond.modules.voyager import voyager
 
 import os
@@ -34,12 +37,39 @@ class VoyagerWSGI(object):
     def dispatch_request(self, request):
         # TODO: Would be great if we found a way to define which transactions
         # are readonly and which are not
-        with Transaction().start(self.database, self.user_id, readonly=False):
-            return self.Site.dispatch(self.site_type, self.site_id, request,
-                self.user_id)
+        retry = config.getint('database', 'retry')
+        count = 0
+        transaction_extras = {}
+        while True:
+            if count:
+                time.sleep(0.02 * count)
+            with Transaction().start(self.database, self.user_id,
+                    readonly=False, **transaction_extras) as transaction:
+                try:
+                    response = self.Site.dispatch(
+                        self.site_type, self.site_id, request, self.user_id)
+                    # Commit before returning so commit conflicts also retry.
+                    transaction.commit()
+                except TransactionError as exception:
+                    transaction.rollback()
+                    transaction.tasks.clear()
+                    exception.fix(transaction_extras)
+                    continue
+                except backend.DatabaseOperationalError:
+                    transaction.rollback()
+                    transaction.tasks.clear()
+                    if count < retry:
+                        count += 1
+                        continue
+                    raise
+            return response
 
     def wsgi_app(self, environ, start_response):
         request = Request(environ)
+        # Existing static files are served by SharedDataMiddleware. Missing
+        # files must not enter site dispatch and renew the visitor's session.
+        if request.path == '/static' or request.path.startswith('/static/'):
+            return NotFound()(environ, start_response)
         response = self.dispatch_request(request)
         return response(environ, start_response)
 

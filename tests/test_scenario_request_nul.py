@@ -78,3 +78,11 @@ class TestRequestNUL(unittest.TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response.data, b'Hello')
                 dispatch_request.assert_not_called()
+
+                for path in ['/static/images/ico/favicon.ico', '/static',
+                        '/static/missing.css']:
+                    with self.subTest(path=path):
+                        response = client.get(path)
+                        self.assertEqual(response.status_code, 404)
+                        self.assertNotIn('Set-Cookie', response.headers)
+                        dispatch_request.assert_not_called()
