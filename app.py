@@ -51,7 +51,7 @@ class VoyagerWSGI(object):
                     self.database, self.user_id, readonly=False,
                     context=context, **transaction_extras) as transaction:
                 try:
-                    result = self.Site.dispatch(
+                    response = self.Site.dispatch(
                         self.site_type, self.site_id, request, self.user_id)
                 except TransactionError as e:
                     transaction.rollback()
@@ -71,7 +71,7 @@ class VoyagerWSGI(object):
             while transaction.tasks:
                 task_id = transaction.tasks.pop()
                 run_task(self.pool, task_id)
-            return result
+            return response
 
     def wsgi_app(self, environ, start_response):
         request = Request(environ)
