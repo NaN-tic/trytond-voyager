@@ -39,16 +39,17 @@ class VoyagerWSGI(object):
     def dispatch_request(self, request):
         # TODO: Would be great if we found a way to define which transactions
         # are readonly and which are not
-        # FIXME: Same code seen on @with_transaction
+        # NOTE: Same code seen on @with_transaction
         retry = config.getint('database', 'retry')
         count = 0
+        context = { '_request': request.context }
         transaction_extras = {}
         while True:
             if count:
                 time.sleep(0.02 * count)
             with Transaction().start(
                     self.database, self.user_id, readonly=False,
-                    **transaction_extras) as transaction:
+                    context=context, **transaction_extras) as transaction:
                 try:
                     result = self.Site.dispatch(
                         self.site_type, self.site_id, request, self.user_id)
