@@ -7,9 +7,9 @@ import trytond.config as config
 from trytond import backend
 from trytond.modules.voyager import voyager
 from trytond.pool import Pool
+from trytond.protocols.wrappers import Request
 from trytond.transaction import Transaction, TransactionError
 from trytond.worker import run_task
-from werkzeug import Request
 from werkzeug.exceptions import NotFound
 from werkzeug.middleware.shared_data import SharedDataMiddleware
 
@@ -43,7 +43,7 @@ class VoyagerWSGI(object):
         # NOTE: Same code seen on @with_transaction
         retry = config.getint('database', 'retry')
         count = 0
-        context = { '_request': request.context }
+        context = {'_request': request.context}
         transaction_extras = {}
         while True:
             if count:
@@ -54,6 +54,8 @@ class VoyagerWSGI(object):
                 try:
                     response = self.Site.dispatch(
                         self.site_type, self.site_id, request, self.user_id)
+                    # Need to commit to unlock SQLite database
+                    transaction.commit()
                 except TransactionError as e:
                     transaction.rollback()
                     transaction.tasks.clear()
@@ -67,8 +69,6 @@ class VoyagerWSGI(object):
                         logger.debug("Retry: %i", count)
                         continue
                     raise
-                # Need to commit to unlock SQLite database
-                transaction.commit()
             while transaction.tasks:
                 task_id = transaction.tasks.pop()
                 run_task(self.pool, task_id)
