@@ -42,7 +42,14 @@ class VoyagerWSGI(object):
         # NOTE: Same code seen on @with_transaction
         retry = config.getint('database', 'retry')
         count = 0
-        context = { '_request': request.context }
+        context = {
+            '_request': {
+                'remote_addr': request.remote_addr,
+                'http_host': request.environ.get('HTTP_HOST'),
+                'scheme': request.scheme,
+                'is_secure': request.is_secure,
+                },
+            }
         transaction_extras = {}
         while True:
             if count:
