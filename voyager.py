@@ -1081,6 +1081,13 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
         ]
 
     @classmethod
+    def _sitemap_where(cls, table, site):
+        return ((table.site == site.id)
+            & (table.active == True)
+            & (table.show_sitemap == True)
+            & (table.main_uri == None))
+
+    @classmethod
     def _sitemap_rows(cls, site):
         Lang = Pool().get('ir.lang')
         cursor = Transaction().connection.cursor()
@@ -1096,9 +1103,7 @@ class VoyagerURI(DeactivableMixin, ModelSQL, ModelView):
                 uri.write_date.as_('write_date'),
                 uri.resource.as_('resource'),
                 language.code.as_('language_code'),
-                where=(uri.site == site.id)
-                & (uri.active == True)
-                & (uri.show_sitemap == True),
+                where=cls._sitemap_where(uri, site),
                 order_by=[uri.uri.asc, uri.id.asc]))
         cursor.execute(*query)
         return list(cursor_dict(cursor))
