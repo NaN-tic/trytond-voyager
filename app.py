@@ -1,9 +1,8 @@
 import click
-from werkzeug import Request
 from trytond.config import config
 from trytond.pool import Pool
-from trytond.transaction import Transaction
 from trytond.modules.voyager import voyager
+from trytond.protocols.wrappers import Request, with_transaction
 
 import os
 from werkzeug.middleware.shared_data import SharedDataMiddleware
@@ -34,9 +33,12 @@ class VoyagerWSGI(object):
     def dispatch_request(self, request):
         # TODO: Would be great if we found a way to define which transactions
         # are readonly and which are not
-        with Transaction().start(self.database, self.user_id, readonly=False):
-            return self.Site.dispatch(self.site_type, self.site_id, request,
-                self.user_id)
+        @with_transaction(readonly=False, user=self.user_id)
+        def dispatch(request, pool):
+            return self.Site.dispatch(
+                self.site_type, self.site_id, request, self.user_id)
+
+        return dispatch(request, self.pool)
 
     def wsgi_app(self, environ, start_response):
         request = Request(environ)
