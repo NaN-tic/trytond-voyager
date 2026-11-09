@@ -1,0 +1,312 @@
+#
+msgid ""
+msgstr ""
+"Language: hu\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgctxt "field:sale.sale,session:"
+msgid "Session"
+msgstr "Munkamenet"
+
+msgctxt "field:www.menu,menus:"
+msgid "Menus"
+msgstr "Menük"
+
+msgctxt "field:www.menu,name:"
+msgid "Name"
+msgstr "Név"
+
+msgctxt "field:www.menu,parent:"
+msgid "Parent"
+msgstr "Fölérendelt"
+
+msgctxt "field:www.menu,sequence:"
+msgid "Sequence"
+msgstr "Sorszám"
+
+msgctxt "field:www.menu,site:"
+msgid "Site"
+msgstr "Webhely"
+
+msgctxt "field:www.menu,type:"
+msgid "Type"
+msgstr "Típus"
+
+msgctxt "field:www.menu,uri:"
+msgid "URI"
+msgstr "URI"
+
+msgctxt "field:www.menu,url:"
+msgid "URL"
+msgstr "URL"
+
+msgctxt "field:www.session,expiration_date:"
+msgid "Expiration Date"
+msgstr "Lejárati dátum"
+
+msgctxt "field:www.session,session_id:"
+msgid "Session ID"
+msgstr "Munkamenet-azonosító"
+
+msgctxt "field:www.session,site:"
+msgid "Site"
+msgstr "Webhely"
+
+msgctxt "field:www.session,system_user:"
+msgid "System User"
+msgstr "Rendszerfelhasználó"
+
+msgctxt "field:www.session,user:"
+msgid "User"
+msgstr "Felhasználó"
+
+msgctxt "field:www.site,author:"
+msgid "Author"
+msgstr "Szerző"
+
+msgctxt "field:www.site,canonical:"
+msgid "Canonical"
+msgstr "Kanonikus"
+
+msgctxt "field:www.site,keywords:"
+msgid "Keywords"
+msgstr "Kulcsszavak"
+
+msgctxt "field:www.site,metadescription:"
+msgid "Metadescription"
+msgstr "Metaleírás"
+
+msgctxt "field:www.site,metatitle:"
+msgid "Metatitle"
+msgstr "Metacím"
+
+msgctxt "field:www.site,name:"
+msgid "Name"
+msgstr "Név"
+
+msgctxt "field:www.site,route_method:"
+msgid "Route Method"
+msgstr "Útvonal metódusa"
+
+msgctxt "field:www.site,session_lifetime:"
+msgid "Session Lifetime"
+msgstr "Munkamenet élettartama"
+
+msgctxt "field:www.site,session_lifetime_update_frequency:"
+msgid "Session Lifetime Update Frecuency"
+msgstr "Munkamenet-élettartam frissítési gyakorisága"
+
+msgctxt "field:www.site,title:"
+msgid "Title"
+msgstr "Címsor"
+
+msgctxt "field:www.site,type:"
+msgid "Type"
+msgstr "Típus"
+
+msgctxt "field:www.site,url:"
+msgid "URL"
+msgstr "URL"
+
+msgctxt "field:www.site,web_shop:"
+msgid "Web Shop"
+msgstr "Webáruház"
+
+msgctxt "field:www.uri,canonical_uri:"
+msgid "Canonical URI"
+msgstr "Kanonikus URI"
+
+msgctxt "field:www.uri,endpoint:"
+msgid "Endpoint"
+msgstr "Végpont"
+
+msgctxt "field:www.uri,language:"
+msgid "Language"
+msgstr "Nyelv"
+
+msgctxt "field:www.uri,main_uri:"
+msgid "Main URI"
+msgstr "Fő URI"
+
+msgctxt "field:www.uri,related_uris:"
+msgid "Related URIs"
+msgstr "Kapcsolódó URI-k"
+
+msgctxt "field:www.uri,resource:"
+msgid "Resource"
+msgstr "Elem"
+
+msgctxt "field:www.uri,site:"
+msgid "Site"
+msgstr "Webhely"
+
+msgctxt "field:www.uri,uri:"
+msgid "URI"
+msgstr "URI"
+
+msgctxt "field:www.uri.builder.ask,models:"
+msgid "Models"
+msgstr "Modellek"
+
+msgctxt "field:www.uri.builder.result,result:"
+msgid "Result"
+msgstr "Eredmény"
+
+msgctxt "help:www.site,keywords:"
+msgid "Comma-separated list of keywords"
+msgstr "Vesszővel elválasztott kulcsszavak listája"
+
+msgctxt "help:www.site,session_lifetime:"
+msgid "The session lifetme in secons"
+msgstr "A munkamenet élettartama másodpercben"
+
+msgctxt "help:www.site,session_lifetime_update_frequency:"
+msgid "The frequency to update the session lifetime in seconds"
+msgstr "A munkamenet élettartamának frissítési gyakorisága másodpercben"
+
+msgctxt "model:Component,name:"
+msgid "Component"
+msgstr "Összetevő"
+
+msgctxt "model:ir.action,name:act_menu_form_relate"
+msgid "Menus"
+msgstr "Menük"
+
+msgctxt "model:ir.action,name:act_uri_builder"
+msgid "Build URIs"
+msgstr "URI-k létrehozása"
+
+msgctxt "model:ir.action,name:act_uri_form_relate"
+msgid "URIs"
+msgstr "URI-k"
+
+msgctxt "model:ir.action,name:menu_action"
+msgid "Menu Tree"
+msgstr "Menüfa"
+
+msgctxt "model:ir.action,name:menu_action_simple"
+msgid "Menus"
+msgstr "Menük"
+
+msgctxt "model:ir.action,name:site_action"
+msgid "Sites"
+msgstr "Webhelyek"
+
+msgctxt "model:ir.action,name:uri_action"
+msgid "URIs"
+msgstr "URI-k"
+
+msgctxt "model:ir.ui.menu,name:menu_menu"
+msgid "Menu Tree"
+msgstr "Menüfa"
+
+msgctxt "model:ir.ui.menu,name:menu_menu_simple"
+msgid "Menus"
+msgstr "Menük"
+
+msgctxt "model:ir.ui.menu,name:menu_site"
+msgid "Sites"
+msgstr "Webhelyek"
+
+msgctxt "model:ir.ui.menu,name:menu_uri"
+msgid "URIs"
+msgstr "URI-k"
+
+msgctxt "model:ir.ui.menu,name:menu_uri_builder"
+msgid "Build URIs"
+msgstr "URI-k létrehozása"
+
+msgctxt "model:www.menu,name:"
+msgid "WWW Menu"
+msgstr "Webes menü"
+
+msgctxt "model:www.session,name:"
+msgid "Session"
+msgstr "Munkamenet"
+
+msgctxt "model:www.site,name:"
+msgid "WWW Site"
+msgstr "Webhely"
+
+msgctxt "model:www.uri,name:"
+msgid "Voyager URI"
+msgstr "Voyager URI"
+
+msgctxt "model:www.uri.builder.ask,name:"
+msgid "Voyager URI Builder Ask"
+msgstr "Voyager URI-k létrehozása – Megerősítés"
+
+msgctxt "model:www.uri.builder.result,name:"
+msgid "Voyager URI Builder Result"
+msgstr "Voyager URI-k létrehozása – Eredmény"
+
+msgctxt "selection:www.menu,type:"
+msgid "External"
+msgstr "Külső"
+
+msgctxt "selection:www.menu,type:"
+msgid "Internal"
+msgstr "belső"
+
+msgctxt "selection:www.site,route_method:"
+msgid "Endpoint"
+msgstr "Végpont"
+
+msgctxt "selection:www.site,route_method:"
+msgid "URI"
+msgstr "URI"
+
+msgctxt "view:www.site:"
+msgid "Metadescription"
+msgstr "Metaleírás"
+
+msgctxt "view:www.site:"
+msgid "Sale configuration"
+msgstr "Értékesítési beállítások"
+
+msgctxt "view:www.site:"
+msgid "Session"
+msgstr "Munkamenet"
+
+msgctxt "view:www.uri.builder.ask:"
+msgid "Select models to generate uris: "
+msgstr "Válassza ki az URI-k létrehozásához használandó modelleket: "
+
+msgctxt "wizard_button:www.uri.builder,ask,build_uris:"
+msgid "Build URIs"
+msgstr "URI-k létrehozása"
+
+msgctxt "wizard_button:www.uri.builder,ask,end:"
+msgid "Cancel"
+msgstr "Mégse"
+
+msgctxt "wizard_button:www.uri.builder,result,end:"
+msgid "Close"
+msgstr "Bezárás"
+
+msgctxt "field:www.uri.builder.ask,sites:"
+msgid "Sites"
+msgstr "Webhelyek"
+
+msgctxt "field:www.uri,show_sitemap:"
+msgid "Sitemap"
+msgstr "Webhelytérkép"
+
+msgctxt "field:www.uri,url:"
+msgid "URL"
+msgstr "URL"
+
+msgctxt "model:Component,string:"
+msgid "Component"
+msgstr "Összetevő"
+
+msgctxt "model:ir.message,text:msg_menu_site_mismatch"
+msgid "The site of a menu must match the site of its parent menu."
+msgstr "A menü webhelyének meg kell egyeznie a szülőmenü webhelyével."
+
+msgctxt "selection:ir.translation,type:"
+msgid "Voyager"
+msgstr "Voyager"
