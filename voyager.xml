@@ -135,4 +135,10 @@
         </record>
         <menuitem name="Build URIs" parent="menu_uri" action="act_uri_builder" id="menu_uri_builder" sequence="10"/>
     </data>
+    <data>
+        <record model="ir.action-res.group" id="uri_builder_group_admin">
+            <field name="action" ref="act_uri_builder"/>
+            <field name="group" ref="res.group_admin"/>
+        </record>
+    </data>
 </tryton>
